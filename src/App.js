@@ -8,23 +8,52 @@ import { processCalendarData } from './utils/dataProcessor';
 import CalendarView from './CalendarView';
 import './App.css';
 
-// Configure the plugin editor panel
-client.config.configureEditorPanel([
-  { name: 'source', type: 'element' },
-  { name: 'ID', type: 'column', source: 'source', allowMultiple: false, label: 'ID Column' },
-  { name: 'title', type: 'column', source: 'source', allowMultiple: false, label: 'Event Title' },
-  { name: 'startDate', type: 'column', source: 'source', allowMultiple: false, label: 'Start Date' },
-  { name: 'endDate', type: 'column', source: 'source', allowMultiple: false, label: 'End Date (Optional)' },
-  { name: 'description', type: 'column', source: 'source', allowMultiple: false, label: 'Description (Optional)' },
-  { name: 'category', type: 'column', source: 'source', allowMultiple: false, label: 'Category/Color (Optional)' },
-  { name: 'eventFields', type: 'column', source: 'source', allowMultiple: true, label: 'Additional Fields' },
-  { name: 'selectedEventID', type: 'variable', label: 'Selected Event ID' },
-  { name: 'selectedDate', type: 'variable', label: 'Selected Event Start Date' },
-  { name: 'selectedEventData', type: 'variable', label: 'Selected Event Data (JSON)' },
-  { name: 'config', type: 'text', label: 'Settings Config (JSON)', defaultValue: "{}" },
-  { name: 'editMode', type: 'toggle', label: 'Edit Mode' },
-  { name: 'onEventClick', type: 'action-trigger', label: 'Event Click Action' }
-]);
+// Maximum number of additional field variable slots to pre-allocate.
+// Covers up to 15 extra columns while keeping hooks count fixed.
+const MAX_ADDITIONAL_VARS = 15;
+
+// Build the editor panel config. Called once on load and again whenever
+// eventFields or column metadata changes so labels stay in sync.
+function buildEditorPanel(eventFieldIds = [], columns = {}) {
+  const base = [
+    { name: 'source', type: 'element' },
+    { name: 'ID', type: 'column', source: 'source', allowMultiple: false, label: 'ID Column' },
+    { name: 'title', type: 'column', source: 'source', allowMultiple: false, label: 'Event Title' },
+    { name: 'startDate', type: 'column', source: 'source', allowMultiple: false, label: 'Start Date' },
+    { name: 'endDate', type: 'column', source: 'source', allowMultiple: false, label: 'End Date (Optional)' },
+    { name: 'description', type: 'column', source: 'source', allowMultiple: false, label: 'Description (Optional)' },
+    { name: 'category', type: 'column', source: 'source', allowMultiple: false, label: 'Category/Color (Optional)' },
+    { name: 'eventFields', type: 'column', source: 'source', allowMultiple: true, label: 'Additional Fields' },
+    // Core writeback variables
+    { name: 'selectedEventID', type: 'variable', label: 'Selected Event ID' },
+    { name: 'selectedDate', type: 'variable', label: 'Selected Start Date' },
+    { name: 'selectedTitle', type: 'variable', label: 'Selected Title' },
+    { name: 'selectedCategory', type: 'variable', label: 'Selected Category' },
+    { name: 'selectedEndDate', type: 'variable', label: 'Selected End Date' },
+    { name: 'selectedDescription', type: 'variable', label: 'Selected Description' },
+  ];
+
+  // One variable slot per additional field, labeled with the actual column name
+  for (let i = 0; i < MAX_ADDITIONAL_VARS; i++) {
+    const fieldId = eventFieldIds[i];
+    const colName = fieldId && columns[fieldId]?.name ? columns[fieldId].name : null;
+    // Only include slots that are in use — keeps the panel tidy
+    if (colName) {
+      base.push({ name: `additionalVar${i}`, type: 'variable', label: `Selected: ${colName}` });
+    }
+  }
+
+  base.push(
+    { name: 'config', type: 'text', label: 'Settings Config (JSON)', defaultValue: '{}' },
+    { name: 'editMode', type: 'toggle', label: 'Edit Mode' },
+    { name: 'onEventClick', type: 'action-trigger', label: 'Event Click Action' }
+  );
+
+  return base;
+}
+
+// Initial registration with no additional fields
+client.config.configureEditorPanel(buildEditorPanel());
 
 function App() {
   const config = useConfig();
@@ -35,25 +64,49 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
-  // Get variables and action trigger
-  const [eventIdVariable, setEventIdVariable] = useVariable(config.selectedEventID);
-  const [dateVariable, setDateVariable] = useVariable(config.selectedDate);
-  const [, setEventDataVariable] = useVariable(config.selectedEventData);
+  // Core writeback variables
+  const [, setEventIdVariable]     = useVariable(config.selectedEventID);
+  const [, setDateVariable]        = useVariable(config.selectedDate);
+  const [, setTitleVariable]       = useVariable(config.selectedTitle);
+  const [, setCategoryVariable]    = useVariable(config.selectedCategory);
+  const [, setEndDateVariable]     = useVariable(config.selectedEndDate);
+  const [, setDescriptionVariable] = useVariable(config.selectedDescription);
+
+  // Pre-allocate MAX_ADDITIONAL_VARS hooks so the hook count never changes
+  // (React rules: hooks must always be called in the same order)
+  /* eslint-disable react-hooks/rules-of-hooks */
+  const additionalVarSetters = [
+    useVariable(config.additionalVar0)[1],
+    useVariable(config.additionalVar1)[1],
+    useVariable(config.additionalVar2)[1],
+    useVariable(config.additionalVar3)[1],
+    useVariable(config.additionalVar4)[1],
+    useVariable(config.additionalVar5)[1],
+    useVariable(config.additionalVar6)[1],
+    useVariable(config.additionalVar7)[1],
+    useVariable(config.additionalVar8)[1],
+    useVariable(config.additionalVar9)[1],
+    useVariable(config.additionalVar10)[1],
+    useVariable(config.additionalVar11)[1],
+    useVariable(config.additionalVar12)[1],
+    useVariable(config.additionalVar13)[1],
+    useVariable(config.additionalVar14)[1],
+  ];
+  /* eslint-enable react-hooks/rules-of-hooks */
+
   const triggerEventClick = useActionTrigger(config.onEventClick);
 
   // Track when settings were saved locally to avoid race condition with stale config.config updates
-  // Using timestamp instead of boolean to handle multiple rapid config updates from Sigma
   const lastSettingsSaveTime = useRef(0);
 
-  // Debug: Log element columns structure
-  console.log('Element Columns:', elementColumns);
-
-  // Debug: Log current variable values
-  console.log('Current variables:', {
-    eventIdVariable,
-    dateVariable,
-    hasEventClickTrigger: !!triggerEventClick
-  });
+  // Rebuild editor panel whenever additional fields or column metadata changes
+  // so variable slot labels always reflect the actual column names
+  useEffect(() => {
+    const fieldIds = Array.isArray(config.eventFields)
+      ? config.eventFields
+      : (config.eventFields ? [config.eventFields] : []);
+    client.config.configureEditorPanel(buildEditorPanel(fieldIds, elementColumns || {}));
+  }, [config.eventFields, elementColumns]);
 
   // Function to apply theme colors to CSS custom properties
   const applyThemeColors = (theme, customColors = null) => {
@@ -231,42 +284,34 @@ function App() {
     try {
       console.log('Event click triggered:', { eventId, date, event });
 
-      // Determine if an actual event was clicked
       const hasEvent = eventId != null && eventId !== '';
 
-      // Set the ID and date variables directly
+      const formatDate = (d) => {
+        if (!d) return '';
+        if (d instanceof Date) return d.toISOString().split('T')[0];
+        return String(d);
+      };
+
+      // Core variables
       setEventIdVariable(hasEvent ? String(eventId) : '');
       setDateVariable(date);
+      setTitleVariable(hasEvent ? (event?.title ?? '') : '');
+      setCategoryVariable(hasEvent ? (event?.category ?? '') : '');
+      setEndDateVariable(hasEvent ? formatDate(event?.end) : '');
+      setDescriptionVariable(hasEvent ? (event?.description ?? '') : '');
 
-      // Build a JSON blob with every field on the event so the user doesn't
-      // need a separate variable for each column — Sigma's json_extract_path
-      // (or ParseJSON) can pull individual values out on the workbook side.
-      if (hasEvent && event) {
-        const formatDate = (d) => {
-          if (!d) return null;
-          if (d instanceof Date) return d.toISOString().split('T')[0];
-          return String(d);
-        };
+      // Additional field variables — each slot maps to the column at the same
+      // position in config.eventFields, matching how the panel was built
+      const fieldIds = Array.isArray(config.eventFields)
+        ? config.eventFields
+        : (config.eventFields ? [config.eventFields] : []);
 
-        const payload = {
-          id: String(eventId),
-          title: event.title ?? null,
-          category: event.category ?? null,
-          startDate: formatDate(event.start),
-          endDate: formatDate(event.end),
-          description: event.description ?? null,
-          // Spread every additional field in at the top level
-          ...Object.fromEntries(
-            Object.entries(event.additionalFields || {}).map(([k, v]) => [k, v])
-          ),
-        };
+      fieldIds.slice(0, MAX_ADDITIONAL_VARS).forEach((fieldId, i) => {
+        const colName = elementColumns?.[fieldId]?.name || fieldId;
+        const value = hasEvent ? (event?.additionalFields?.[colName] ?? '') : '';
+        additionalVarSetters[i](String(value));
+      });
 
-        setEventDataVariable(JSON.stringify(payload));
-      } else {
-        setEventDataVariable('');
-      }
-
-      // Trigger the action only when an event was clicked
       if (triggerEventClick && hasEvent) {
         triggerEventClick();
       }
