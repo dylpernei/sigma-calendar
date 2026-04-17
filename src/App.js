@@ -20,10 +20,7 @@ client.config.configureEditorPanel([
   { name: 'eventFields', type: 'column', source: 'source', allowMultiple: true, label: 'Additional Fields' },
   { name: 'selectedEventID', type: 'variable', label: 'Selected Event ID' },
   { name: 'selectedDate', type: 'variable', label: 'Selected Event Start Date' },
-  { name: 'selectedTitle', type: 'variable', label: 'Selected Event Title' },
-  { name: 'selectedCategory', type: 'variable', label: 'Selected Event Category' },
-  { name: 'selectedEndDate', type: 'variable', label: 'Selected Event End Date' },
-  { name: 'selectedDescription', type: 'variable', label: 'Selected Event Description' },
+  { name: 'selectedEventData', type: 'variable', label: 'Selected Event Data (JSON)' },
   { name: 'config', type: 'text', label: 'Settings Config (JSON)', defaultValue: "{}" },
   { name: 'editMode', type: 'toggle', label: 'Edit Mode' },
   { name: 'onEventClick', type: 'action-trigger', label: 'Event Click Action' }
@@ -41,10 +38,7 @@ function App() {
   // Get variables and action trigger
   const [eventIdVariable, setEventIdVariable] = useVariable(config.selectedEventID);
   const [dateVariable, setDateVariable] = useVariable(config.selectedDate);
-  const [, setTitleVariable] = useVariable(config.selectedTitle);
-  const [, setCategoryVariable] = useVariable(config.selectedCategory);
-  const [, setEndDateVariable] = useVariable(config.selectedEndDate);
-  const [, setDescriptionVariable] = useVariable(config.selectedDescription);
+  const [, setEventDataVariable] = useVariable(config.selectedEventData);
   const triggerEventClick = useActionTrigger(config.onEventClick);
 
   // Track when settings were saved locally to avoid race condition with stale config.config updates
@@ -240,15 +234,37 @@ function App() {
       // Determine if an actual event was clicked
       const hasEvent = eventId != null && eventId !== '';
 
-      // Set the variables — use empty string when no event is selected
+      // Set the ID and date variables directly
       setEventIdVariable(hasEvent ? String(eventId) : '');
       setDateVariable(date);
-      setTitleVariable(hasEvent && event?.title ? String(event.title) : '');
-      setCategoryVariable(hasEvent && event?.category ? String(event.category) : '');
-      setEndDateVariable(hasEvent && event?.end ? String(event.end instanceof Date
-        ? event.end.toISOString().split('T')[0]
-        : event.end) : '');
-      setDescriptionVariable(hasEvent && event?.description ? String(event.description) : '');
+
+      // Build a JSON blob with every field on the event so the user doesn't
+      // need a separate variable for each column — Sigma's json_extract_path
+      // (or ParseJSON) can pull individual values out on the workbook side.
+      if (hasEvent && event) {
+        const formatDate = (d) => {
+          if (!d) return null;
+          if (d instanceof Date) return d.toISOString().split('T')[0];
+          return String(d);
+        };
+
+        const payload = {
+          id: String(eventId),
+          title: event.title ?? null,
+          category: event.category ?? null,
+          startDate: formatDate(event.start),
+          endDate: formatDate(event.end),
+          description: event.description ?? null,
+          // Spread every additional field in at the top level
+          ...Object.fromEntries(
+            Object.entries(event.additionalFields || {}).map(([k, v]) => [k, v])
+          ),
+        };
+
+        setEventDataVariable(JSON.stringify(payload));
+      } else {
+        setEventDataVariable('');
+      }
 
       // Trigger the action only when an event was clicked
       if (triggerEventClick && hasEvent) {
