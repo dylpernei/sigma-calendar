@@ -73,10 +73,19 @@ export function processCalendarData(sigmaData, config, settings, elementColumns)
   const categories = new Set();
   const dataLength = titleData.length;
 
+  // Log the raw format of the first date value so we can diagnose timezone issues
+  if (startDateData[0] !== undefined) {
+    const sample = startDateData[0];
+    console.log('[Date Debug] raw type:', typeof sample, '| value:', sample, '| instanceof Date:', sample instanceof Date);
+    if (sample instanceof Date) {
+      console.log('[Date Debug] UTC iso:', sample.toISOString(), '| local string:', sample.toString());
+    }
+  }
+
   for (let i = 0; i < dataLength; i++) {
     const title = titleData[i];
     const startDateValue = startDateData[i];
-    
+
     // Skip if no title or start date
     if (!title || !startDateValue) continue;
 
