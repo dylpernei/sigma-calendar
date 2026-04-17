@@ -82,13 +82,48 @@ export function debugEventProcessing(event, config, elementColumns) {
  */
 export function parseDate(dateValue) {
   if (!dateValue) return null;
-  
-  // If it's already a Date object
+
+  // Already a Date object — but if it landed on UTC midnight it may still be
+  // off by one in local time (common when Snowflake DATE columns come through
+  // as JS Date objects set to 00:00:00 UTC). Reparse via ISO string so the
+  // date-only branch below can normalise it.
   if (dateValue instanceof Date) {
-    return isNaN(dateValue.getTime()) ? null : dateValue;
+    if (isNaN(dateValue.getTime())) return null;
+    // If the time is exactly midnight UTC, treat it as a date-only value
+    if (
+      dateValue.getUTCHours() === 0 &&
+      dateValue.getUTCMinutes() === 0 &&
+      dateValue.getUTCSeconds() === 0 &&
+      dateValue.getUTCMilliseconds() === 0
+    ) {
+      // Re-express as a local-midnight date using the UTC date parts
+      return new Date(
+        dateValue.getUTCFullYear(),
+        dateValue.getUTCMonth(),
+        dateValue.getUTCDate()
+      );
+    }
+    return dateValue;
   }
-  
-  // If it's a string or number, try to parse it
+
+  const str = String(dateValue).trim();
+
+  // Pure date string: YYYY-MM-DD (no time component).
+  // spec says new Date('YYYY-MM-DD') is UTC midnight, which shifts a day back
+  // in any negative-offset timezone. Parse as local midnight instead.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  // Timestamp with T and Z / UTC offset — normalise to local midnight if the
+  // time portion is 00:00:00 (i.e. Snowflake DATE shipped as UTC midnight).
+  if (/^\d{4}-\d{2}-\d{2}T00:00:00/.test(str)) {
+    const [y, m, d] = str.slice(0, 10).split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  // Anything else (timestamps with real times) — parse normally
   const parsed = new Date(dateValue);
   return isNaN(parsed.getTime()) ? null : parsed;
 }
