@@ -78,7 +78,7 @@ function WeekView({
                     const handleClick = () => {
                       if (mode === 'tooltip') {
                         // Tooltip mode: only trigger Sigma actions, no modal
-                        onEventClick && onEventClick(event.id, format(day, 'yyyy-MM-dd'));
+                        onEventClick && onEventClick(event.id, format(day, 'yyyy-MM-dd'), event);
                       } else {
                         // Modal, both, or auto modes: open modal
                         onEventModalOpen && onEventModalOpen(event);
@@ -89,7 +89,7 @@ function WeekView({
                       <div 
                         key={`${event.id}-${day.toISOString()}`}
                         className="text-xs p-1 rounded cursor-pointer hover:opacity-80"
-                        style={{ backgroundColor: event.color, color: 'white' }}
+                        style={{ backgroundColor: event.color, color: event.textColor || 'white' }}
                         onClick={handleClick}
                       >
                         {event.title}
@@ -162,7 +162,7 @@ function WeekView({
                     const mode = settings.eventInteractionMode || 'auto';
                     if (mode === 'tooltip') {
                       // Tooltip mode: only trigger Sigma actions, no modal
-                      return () => onEventClick && onEventClick(event.id, format(day, 'yyyy-MM-dd'));
+                      return () => onEventClick && onEventClick(event.id, format(day, 'yyyy-MM-dd'), event);
                     } else {
                       // Modal, both, or auto modes: open modal
                       return () => onEventModalOpen && onEventModalOpen(event);

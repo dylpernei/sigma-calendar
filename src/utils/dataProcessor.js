@@ -1,9 +1,10 @@
-import { 
-  getColumnName, 
-  validateRequiredColumns, 
-  parseDate, 
+import {
+  getColumnName,
+  validateRequiredColumns,
+  parseDate,
   getEventColor,
-  debugEventProcessing 
+  getEventTextColor,
+  debugEventProcessing
 } from './columnHelper';
 import { addDays, format, startOfDay, endOfDay } from 'date-fns';
 
@@ -127,6 +128,7 @@ export function processCalendarData(sigmaData, config, settings, elementColumns)
       description,
       category,
       color: getEventColor(category, settings),
+      textColor: getEventTextColor(category, settings),
       additionalFields,
       originalIndex: i
     };

@@ -76,7 +76,7 @@ function MiniMonthView({
                   if (allowPreviewModal) {
                     onEventPreviewOpen && onEventPreviewOpen(dayEvents[0]);
                   } else {
-                    onEventClick && onEventClick(dayEvents[0].id, format(day, 'yyyy-MM-dd'));
+                    onEventClick && onEventClick(dayEvents[0].id, format(day, 'yyyy-MM-dd'), dayEvents[0]);
                   }
                 } else {
                   onDateClick && onDateClick(day);

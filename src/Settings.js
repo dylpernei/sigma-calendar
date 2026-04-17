@@ -7,7 +7,7 @@ import { Switch } from './components/ui/switch';
 
 import { HelpCircle, Palette, RotateCcw } from 'lucide-react';
 import HelpModal from './HelpModal';
-import { HslaColorPicker } from 'react-colorful';
+import { HslaColorPicker, HexColorPicker } from 'react-colorful';
 
 // Preset themes
 const PRESET_THEMES = {
@@ -262,14 +262,46 @@ function ColorPickerField({ label, colorKey, value, onChange }) {
   );
 }
 
-function Settings({ 
-  isOpen, 
-  onClose, 
-  currentSettings, 
-  onSave, 
+// Hex color picker for event category colors
+function CategoryColorField({ label, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const checkerBg = {
+    backgroundImage:
+      'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)',
+    backgroundSize: '8px 8px',
+    backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px',
+  };
+  return (
+    <div className="flex items-center gap-2 relative">
+      <label className="text-xs font-normal min-w-0 flex-1">{label}</label>
+      <button
+        type="button"
+        className="w-7 h-7 rounded border border-border overflow-hidden flex-shrink-0"
+        style={checkerBg}
+        aria-label={`Pick ${label}`}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <div className="w-full h-full" style={{ backgroundColor: value || '#888' }} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-50 bg-popover text-popover-foreground border border-border rounded-md p-2 shadow-md">
+          <HexColorPicker color={value || '#888888'} onChange={onChange} />
+          <div className="text-xs text-muted-foreground mt-1">{value || '#888888'}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Settings({
+  isOpen,
+  onClose,
+  currentSettings,
+  onSave,
   client,
   elementColumns = {},
-  config = {}
+  config = {},
+  categories = []
 }) {
   const [tempSettings, setTempSettings] = useState(currentSettings);
   const [showHelp, setShowHelp] = useState(false);
@@ -337,6 +369,16 @@ function Settings({
     setTempSettings({
       ...tempSettings,
       styling: { ...tempSettings.styling, customColors: newCustomColors }
+    });
+  };
+
+  const handleCategoryColorChange = (category, colorType, hexValue) => {
+    const existing = tempSettings.customEventColors?.[category];
+    const current = (typeof existing === 'object' && existing !== null) ? existing : {};
+    const updated = { ...current, [colorType]: hexValue };
+    setTempSettings({
+      ...tempSettings,
+      customEventColors: { ...tempSettings.customEventColors, [category]: updated }
     });
   };
 
@@ -776,6 +818,58 @@ function Settings({
                     <Palette className="h-4 w-4" />
                     Click on any color square to customize. Changes apply instantly when dynamic theming is enabled.
                   </p>
+                </div>
+              )}
+
+              {/* Category Colors */}
+              {categories.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Category Colors</Label>
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground underline"
+                      onClick={() => setTempSettings({ ...tempSettings, customEventColors: {} })}
+                    >
+                      Reset all
+                    </button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Set background and text colors for each category.
+                  </p>
+                  <div className="space-y-3">
+                    {categories.map((cat) => {
+                      const entry = tempSettings.customEventColors?.[cat];
+                      const bgColor = (typeof entry === 'object' && entry?.background) ? entry.background
+                        : (typeof entry === 'string' ? entry : '');
+                      const textColor = (typeof entry === 'object' && entry?.text) ? entry.text : '';
+                      return (
+                        <div key={cat} className="border border-border rounded-md p-3 space-y-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                              style={{
+                                backgroundColor: bgColor || '#3788d8',
+                                color: textColor || 'white'
+                              }}
+                            >
+                              {cat}
+                            </span>
+                          </div>
+                          <CategoryColorField
+                            label="Background"
+                            value={bgColor || '#3788d8'}
+                            onChange={(hex) => handleCategoryColorChange(cat, 'background', hex)}
+                          />
+                          <CategoryColorField
+                            label="Text"
+                            value={textColor || '#ffffff'}
+                            onChange={(hex) => handleCategoryColorChange(cat, 'text', hex)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

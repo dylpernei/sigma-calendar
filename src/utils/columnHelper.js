@@ -123,42 +123,61 @@ export function isValidDate(dateValue) {
 }
 
 /**
- * Get event color based on category
+ * Get event background color based on category.
+ * customEventColors entries can be either a plain hex string (legacy) or
+ * an object { background: string, text: string }.
  * @param {string} category - Event category
  * @param {Object} colorSettings - Color settings from configuration
- * @returns {string} - Color value
+ * @returns {string} - Background color value
  */
 export function getEventColor(category, colorSettings = {}) {
   if (!category) return '#3788d8'; // Default blue
-  
+
   // Check custom color mapping first
   if (colorSettings.customEventColors && colorSettings.customEventColors[category]) {
-    return colorSettings.customEventColors[category];
+    const custom = colorSettings.customEventColors[category];
+    if (typeof custom === 'object' && custom.background) return custom.background;
+    if (typeof custom === 'string') return custom;
   }
-  
+
   // Default color palette for categories
   const defaultColors = {
-    'urgent': '#ef4444',     // red
-    'high': '#f97316',       // orange
-    'medium': '#eab308',     // yellow
-    'low': '#22c55e',        // green
-    'completed': '#22c55e',  // green
+    'urgent': '#ef4444',      // red
+    'high': '#f97316',        // orange
+    'medium': '#eab308',      // yellow
+    'low': '#22c55e',         // green
+    'completed': '#22c55e',   // green
     'in progress': '#3b82f6', // blue
-    'todo': '#6b7280',       // gray
-    'cancelled': '#6b7280'   // gray
+    'todo': '#6b7280',        // gray
+    'cancelled': '#6b7280'    // gray
   };
-  
+
   const categoryLower = category.toLowerCase();
   if (defaultColors[categoryLower]) {
     return defaultColors[categoryLower];
   }
-  
+
   // Generate a consistent color based on category name
   let hash = 0;
   for (let i = 0; i < category.length; i++) {
     hash = category.charCodeAt(i) + ((hash << 5) - hash);
   }
-  
+
   const hue = Math.abs(hash) % 360;
   return `hsl(${hue}, 65%, 55%)`;
+}
+
+/**
+ * Get event text (foreground) color based on category.
+ * Returns the user-configured text color when set, otherwise 'white'.
+ * @param {string} category - Event category
+ * @param {Object} colorSettings - Color settings from configuration
+ * @returns {string} - Text color value
+ */
+export function getEventTextColor(category, colorSettings = {}) {
+  if (category && colorSettings.customEventColors && colorSettings.customEventColors[category]) {
+    const custom = colorSettings.customEventColors[category];
+    if (typeof custom === 'object' && custom.text) return custom.text;
+  }
+  return 'white';
 } 

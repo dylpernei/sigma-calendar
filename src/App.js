@@ -18,8 +18,12 @@ client.config.configureEditorPanel([
   { name: 'description', type: 'column', source: 'source', allowMultiple: false, label: 'Description (Optional)' },
   { name: 'category', type: 'column', source: 'source', allowMultiple: false, label: 'Category/Color (Optional)' },
   { name: 'eventFields', type: 'column', source: 'source', allowMultiple: true, label: 'Additional Fields' },
-  { name: 'selectedEventID', type: 'variable', label: 'Selected Event ID Variable' },
-  { name: 'selectedDate', type: 'variable', label: 'Selected Date Variable' },
+  { name: 'selectedEventID', type: 'variable', label: 'Selected Event ID' },
+  { name: 'selectedDate', type: 'variable', label: 'Selected Event Start Date' },
+  { name: 'selectedTitle', type: 'variable', label: 'Selected Event Title' },
+  { name: 'selectedCategory', type: 'variable', label: 'Selected Event Category' },
+  { name: 'selectedEndDate', type: 'variable', label: 'Selected Event End Date' },
+  { name: 'selectedDescription', type: 'variable', label: 'Selected Event Description' },
   { name: 'config', type: 'text', label: 'Settings Config (JSON)', defaultValue: "{}" },
   { name: 'editMode', type: 'toggle', label: 'Edit Mode' },
   { name: 'onEventClick', type: 'action-trigger', label: 'Event Click Action' }
@@ -37,15 +41,19 @@ function App() {
   // Get variables and action trigger
   const [eventIdVariable, setEventIdVariable] = useVariable(config.selectedEventID);
   const [dateVariable, setDateVariable] = useVariable(config.selectedDate);
+  const [, setTitleVariable] = useVariable(config.selectedTitle);
+  const [, setCategoryVariable] = useVariable(config.selectedCategory);
+  const [, setEndDateVariable] = useVariable(config.selectedEndDate);
+  const [, setDescriptionVariable] = useVariable(config.selectedDescription);
   const triggerEventClick = useActionTrigger(config.onEventClick);
-  
+
   // Track when settings were saved locally to avoid race condition with stale config.config updates
   // Using timestamp instead of boolean to handle multiple rapid config updates from Sigma
   const lastSettingsSaveTime = useRef(0);
 
   // Debug: Log element columns structure
   console.log('Element Columns:', elementColumns);
-  
+
   // Debug: Log current variable values
   console.log('Current variables:', {
     eventIdVariable,
@@ -225,27 +233,29 @@ function App() {
     setShowSettings(false);
   };
 
-  const handleEventClick = async (eventId, date) => {
+  const handleEventClick = async (eventId, date, event) => {
     try {
-      console.log('Event click triggered:', { eventId, date });
-      
+      console.log('Event click triggered:', { eventId, date, event });
+
       // Determine if an actual event was clicked
       const hasEvent = eventId != null && eventId !== '';
 
-      // Set the variables
-      // Coerce to string for Sigma text variables; use empty string when no event is selected
+      // Set the variables — use empty string when no event is selected
       setEventIdVariable(hasEvent ? String(eventId) : '');
       setDateVariable(date);
+      setTitleVariable(hasEvent && event?.title ? String(event.title) : '');
+      setCategoryVariable(hasEvent && event?.category ? String(event.category) : '');
+      setEndDateVariable(hasEvent && event?.end ? String(event.end instanceof Date
+        ? event.end.toISOString().split('T')[0]
+        : event.end) : '');
+      setDescriptionVariable(hasEvent && event?.description ? String(event.description) : '');
 
       // Trigger the action only when an event was clicked
       if (triggerEventClick && hasEvent) {
         triggerEventClick();
       }
-      
-      console.log('Variables set and action triggered:', {
-        eventId,
-        date
-      });
+
+      console.log('Variables set and action triggered:', { eventId, date });
     } catch (error) {
       console.error('Error handling event click:', error);
       setError(`Failed to handle event click: ${error.message}`);
@@ -282,6 +292,7 @@ function App() {
           client={client}
           elementColumns={elementColumns}
           config={config}
+          categories={calendarData?.categories || []}
         />
       </>
     );

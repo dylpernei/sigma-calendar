@@ -23,7 +23,7 @@ function EventCard({ event, onClick, onSecondaryClick }) {
             </span>
             {event.category && (
               <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium"
-                    style={{ backgroundColor: event.color, color: 'white' }}>
+                    style={{ backgroundColor: event.color, color: event.textColor || 'white' }}>
                 {event.category}
               </span>
             )}

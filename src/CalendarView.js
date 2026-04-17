@@ -143,9 +143,9 @@ function CalendarView({ data, settings, onEventClick, editMode, onOpenSettings }
     setShowDayEventsModal(true);
   };
 
-  const handleEventAction = (eventId, date) => {
+  const handleEventAction = (eventId, date, event) => {
     if (onEventClick) {
-      onEventClick(eventId, date);
+      onEventClick(eventId, date, event);
     }
   };
 

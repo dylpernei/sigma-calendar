@@ -65,7 +65,7 @@ function DayView({
                   key={event.id}
                   event={event}
                   onClick={() => onEventModalOpen && onEventModalOpen(event)}
-                  onSecondaryClick={() => onEventClick && onEventClick(event.id, format(currentDate, 'yyyy-MM-dd'))}
+                  onSecondaryClick={() => onEventClick && onEventClick(event.id, format(currentDate, 'yyyy-MM-dd'), event)}
                 />
               ))
             )}
@@ -90,7 +90,7 @@ function DayView({
                 key={event.id}
                 event={event}
                 onClick={() => onEventModalOpen && onEventModalOpen(event)}
-                onSecondaryClick={() => onEventClick && onEventClick(event.id, format(currentDate, 'yyyy-MM-dd'))}
+                onSecondaryClick={() => onEventClick && onEventClick(event.id, format(currentDate, 'yyyy-MM-dd'), event)}
               />
             ))
           )}
