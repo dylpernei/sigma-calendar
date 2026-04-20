@@ -64,33 +64,33 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
-  // Core writeback variables
-  const [, setEventIdVariable]     = useVariable(config.selectedEventID);
-  const [, setDateVariable]        = useVariable(config.selectedDate);
-  const [, setTitleVariable]       = useVariable(config.selectedTitle);
-  const [, setCategoryVariable]    = useVariable(config.selectedCategory);
-  const [, setEndDateVariable]     = useVariable(config.selectedEndDate);
-  const [, setDescriptionVariable] = useVariable(config.selectedDescription);
+  // Core writeback variables — fall back to '' so useVariable never receives undefined
+  const [, setEventIdVariable]     = useVariable(config.selectedEventID     || '');
+  const [, setDateVariable]        = useVariable(config.selectedDate        || '');
+  const [, setTitleVariable]       = useVariable(config.selectedTitle       || '');
+  const [, setCategoryVariable]    = useVariable(config.selectedCategory    || '');
+  const [, setEndDateVariable]     = useVariable(config.selectedEndDate     || '');
+  const [, setDescriptionVariable] = useVariable(config.selectedDescription || '');
 
-  // Pre-allocate MAX_ADDITIONAL_VARS hooks so the hook count never changes
-  // (React rules: hooks must always be called in the same order)
+  // Pre-allocate MAX_ADDITIONAL_VARS hooks — always called in the same order,
+  // always with a string (never undefined) so Sigma never sees an invalid name
   /* eslint-disable react-hooks/rules-of-hooks */
   const additionalVarSetters = [
-    useVariable(config.additionalVar0)[1],
-    useVariable(config.additionalVar1)[1],
-    useVariable(config.additionalVar2)[1],
-    useVariable(config.additionalVar3)[1],
-    useVariable(config.additionalVar4)[1],
-    useVariable(config.additionalVar5)[1],
-    useVariable(config.additionalVar6)[1],
-    useVariable(config.additionalVar7)[1],
-    useVariable(config.additionalVar8)[1],
-    useVariable(config.additionalVar9)[1],
-    useVariable(config.additionalVar10)[1],
-    useVariable(config.additionalVar11)[1],
-    useVariable(config.additionalVar12)[1],
-    useVariable(config.additionalVar13)[1],
-    useVariable(config.additionalVar14)[1],
+    useVariable(config.additionalVar0  || '')[1],
+    useVariable(config.additionalVar1  || '')[1],
+    useVariable(config.additionalVar2  || '')[1],
+    useVariable(config.additionalVar3  || '')[1],
+    useVariable(config.additionalVar4  || '')[1],
+    useVariable(config.additionalVar5  || '')[1],
+    useVariable(config.additionalVar6  || '')[1],
+    useVariable(config.additionalVar7  || '')[1],
+    useVariable(config.additionalVar8  || '')[1],
+    useVariable(config.additionalVar9  || '')[1],
+    useVariable(config.additionalVar10 || '')[1],
+    useVariable(config.additionalVar11 || '')[1],
+    useVariable(config.additionalVar12 || '')[1],
+    useVariable(config.additionalVar13 || '')[1],
+    useVariable(config.additionalVar14 || '')[1],
   ];
   /* eslint-enable react-hooks/rules-of-hooks */
 
@@ -290,39 +290,22 @@ function App() {
         return String(d);
       };
 
-      console.log('[Writeback Debug] config keys:', {
-        selectedEventID: config.selectedEventID,
-        selectedDate: config.selectedDate,
-        selectedTitle: config.selectedTitle,
-        selectedCategory: config.selectedCategory,
-        selectedEndDate: config.selectedEndDate,
-        selectedDescription: config.selectedDescription,
-      });
-      console.log('[Writeback Debug] values to write:', {
-        eventId: hasEvent ? String(eventId) : '',
-        date,
-        title: event?.title,
-        category: event?.category,
-        endDate: formatDate(event?.end),
-        description: event?.description,
-        additionalFields: event?.additionalFields,
-      });
+      // Only call a setter when that slot is actually linked to a Sigma control.
+      // Calling with an unlinked (undefined) key produces "invalid control variable name".
+      if (config.selectedEventID)     setEventIdVariable(hasEvent ? String(eventId) : '');
+      if (config.selectedDate)        setDateVariable(date);
+      if (config.selectedTitle)       setTitleVariable(hasEvent ? (event?.title ?? '') : '');
+      if (config.selectedCategory)    setCategoryVariable(hasEvent ? (event?.category ?? '') : '');
+      if (config.selectedEndDate)     setEndDateVariable(hasEvent ? formatDate(event?.end) : '');
+      if (config.selectedDescription) setDescriptionVariable(hasEvent ? (event?.description ?? '') : '');
 
-      // Core variables
-      setEventIdVariable(hasEvent ? String(eventId) : '');
-      setDateVariable(date);
-      setTitleVariable(hasEvent ? (event?.title ?? '') : '');
-      setCategoryVariable(hasEvent ? (event?.category ?? '') : '');
-      setEndDateVariable(hasEvent ? formatDate(event?.end) : '');
-      setDescriptionVariable(hasEvent ? (event?.description ?? '') : '');
-
-      // Additional field variables — each slot maps to the column at the same
-      // position in config.eventFields, matching how the panel was built
+      // Additional field variables
       const fieldIds = Array.isArray(config.eventFields)
         ? config.eventFields
         : (config.eventFields ? [config.eventFields] : []);
 
       fieldIds.slice(0, MAX_ADDITIONAL_VARS).forEach((fieldId, i) => {
+        if (!config[`additionalVar${i}`]) return; // skip unlinked slots
         const colName = elementColumns?.[fieldId]?.name || fieldId;
         const value = hasEvent ? (event?.additionalFields?.[colName] ?? '') : '';
         additionalVarSetters[i](String(value));
