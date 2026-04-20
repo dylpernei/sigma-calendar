@@ -59,33 +59,32 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
-  // Core writeback variables — fall back to '' so useVariable never receives undefined
-  const [, setEventIdVariable]     = useVariable(config.selectedEventID     || '');
-  const [, setDateVariable]        = useVariable(config.selectedDate        || '');
-  const [, setTitleVariable]       = useVariable(config.selectedTitle       || '');
-  const [, setCategoryVariable]    = useVariable(config.selectedCategory    || '');
-  const [, setEndDateVariable]     = useVariable(config.selectedEndDate     || '');
-  const [, setDescriptionVariable] = useVariable(config.selectedDescription || '');
+  // Core writeback variables — use null for unlinked slots (avoids '' binding to no-op)
+  const [, setEventIdVariable]     = useVariable(config.selectedEventID     ?? null);
+  const [, setDateVariable]        = useVariable(config.selectedDate        ?? null);
+  const [, setTitleVariable]       = useVariable(config.selectedTitle       ?? null);
+  const [, setCategoryVariable]    = useVariable(config.selectedCategory    ?? null);
+  const [, setEndDateVariable]     = useVariable(config.selectedEndDate     ?? null);
+  const [, setDescriptionVariable] = useVariable(config.selectedDescription ?? null);
 
-  // Pre-allocate MAX_ADDITIONAL_VARS hooks — always called in the same order,
-  // always with a string (never undefined) so Sigma never sees an invalid name
+  // Pre-allocate MAX_ADDITIONAL_VARS hooks — always called in the same order
   /* eslint-disable react-hooks/rules-of-hooks */
   const additionalVarSetters = [
-    useVariable(config.additionalVar0  || '')[1],
-    useVariable(config.additionalVar1  || '')[1],
-    useVariable(config.additionalVar2  || '')[1],
-    useVariable(config.additionalVar3  || '')[1],
-    useVariable(config.additionalVar4  || '')[1],
-    useVariable(config.additionalVar5  || '')[1],
-    useVariable(config.additionalVar6  || '')[1],
-    useVariable(config.additionalVar7  || '')[1],
-    useVariable(config.additionalVar8  || '')[1],
-    useVariable(config.additionalVar9  || '')[1],
-    useVariable(config.additionalVar10 || '')[1],
-    useVariable(config.additionalVar11 || '')[1],
-    useVariable(config.additionalVar12 || '')[1],
-    useVariable(config.additionalVar13 || '')[1],
-    useVariable(config.additionalVar14 || '')[1],
+    useVariable(config.additionalVar0  ?? null)[1],
+    useVariable(config.additionalVar1  ?? null)[1],
+    useVariable(config.additionalVar2  ?? null)[1],
+    useVariable(config.additionalVar3  ?? null)[1],
+    useVariable(config.additionalVar4  ?? null)[1],
+    useVariable(config.additionalVar5  ?? null)[1],
+    useVariable(config.additionalVar6  ?? null)[1],
+    useVariable(config.additionalVar7  ?? null)[1],
+    useVariable(config.additionalVar8  ?? null)[1],
+    useVariable(config.additionalVar9  ?? null)[1],
+    useVariable(config.additionalVar10 ?? null)[1],
+    useVariable(config.additionalVar11 ?? null)[1],
+    useVariable(config.additionalVar12 ?? null)[1],
+    useVariable(config.additionalVar13 ?? null)[1],
+    useVariable(config.additionalVar14 ?? null)[1],
   ];
   /* eslint-enable react-hooks/rules-of-hooks */
 
@@ -276,12 +275,12 @@ function App() {
         return String(d);
       };
 
-      if (config.selectedEventID)     setEventIdVariable(hasEvent ? String(eventId) : '');
-      if (config.selectedDate)        setDateVariable(date);
-      if (config.selectedTitle)       setTitleVariable(hasEvent ? (event?.title ?? '') : '');
-      if (config.selectedCategory)    setCategoryVariable(hasEvent ? (event?.category ?? '') : '');
-      if (config.selectedEndDate)     setEndDateVariable(hasEvent ? formatDate(event?.end) : '');
-      if (config.selectedDescription) setDescriptionVariable(hasEvent ? (event?.description ?? '') : '');
+      if (config.selectedEventID     !== undefined) setEventIdVariable(hasEvent ? String(eventId) : '');
+      if (config.selectedDate        !== undefined) setDateVariable(date);
+      if (config.selectedTitle       !== undefined) setTitleVariable(hasEvent ? (event?.title ?? '') : '');
+      if (config.selectedCategory    !== undefined) setCategoryVariable(hasEvent ? (event?.category ?? '') : '');
+      if (config.selectedEndDate     !== undefined) setEndDateVariable(hasEvent ? formatDate(event?.end) : '');
+      if (config.selectedDescription !== undefined) setDescriptionVariable(hasEvent ? (event?.description ?? '') : '');
 
       // Additional field variables
       const fieldIds = Array.isArray(config.eventFields)
@@ -289,7 +288,7 @@ function App() {
         : (config.eventFields ? [config.eventFields] : []);
 
       fieldIds.slice(0, MAX_ADDITIONAL_VARS).forEach((fieldId, i) => {
-        if (!config[`additionalVar${i}`]) return; // skip unlinked slots
+        if (config[`additionalVar${i}`] === undefined) return; // skip unregistered slots
         const colName = elementColumns?.[fieldId]?.name || fieldId;
         const value = hasEvent ? (event?.additionalFields?.[colName] ?? '') : '';
         additionalVarSetters[i](String(value));
