@@ -139,7 +139,7 @@ const EventDetailModal = ({
           {onEventAction && (
             <Button 
               onClick={() => {
-                onEventAction(event.id, format(event.start, 'yyyy-MM-dd'));
+                onEventAction(event.id, format(event.start, 'yyyy-MM-dd'), event);
                 onClose();
               }}
             >
@@ -208,7 +208,7 @@ const EventPreviewModal = ({
           )}
           {onEventAction && (
             <Button onClick={() => {
-              onEventAction(event.id, format(event.start, 'yyyy-MM-dd'));
+              onEventAction(event.id, format(event.start, 'yyyy-MM-dd'), event);
               onClose();
             }}>
               Select Event
