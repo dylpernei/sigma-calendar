@@ -54,32 +54,34 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
-  // Core writeback variables — use null for unlinked slots (avoids '' binding to no-op)
-  const [, setEventIdVariable]     = useVariable(config.selectedEventID     ?? null);
-  const [, setDateVariable]        = useVariable(config.selectedDate        ?? null);
-  const [, setTitleVariable]       = useVariable(config.selectedTitle       ?? null);
-  const [, setCategoryVariable]    = useVariable(config.selectedCategory    ?? null);
-  const [, setEndDateVariable]     = useVariable(config.selectedEndDate     ?? null);
-  const [, setDescriptionVariable] = useVariable(config.selectedDescription ?? null);
+  // useVariable must never receive null/undefined — pass '' for unlinked slots
+  // so Sigma gets a valid no-op binding. The != null guards in handleEventClick
+  // ensure we only call setters for slots actually linked to a control.
+  const [, setEventIdVariable]     = useVariable(config.selectedEventID     || '');
+  const [, setDateVariable]        = useVariable(config.selectedDate        || '');
+  const [, setTitleVariable]       = useVariable(config.selectedTitle       || '');
+  const [, setCategoryVariable]    = useVariable(config.selectedCategory    || '');
+  const [, setEndDateVariable]     = useVariable(config.selectedEndDate     || '');
+  const [, setDescriptionVariable] = useVariable(config.selectedDescription || '');
 
   // Pre-allocate MAX_ADDITIONAL_VARS hooks — always called in the same order
   /* eslint-disable react-hooks/rules-of-hooks */
   const additionalVarSetters = [
-    useVariable(config.additionalVar0  ?? null)[1],
-    useVariable(config.additionalVar1  ?? null)[1],
-    useVariable(config.additionalVar2  ?? null)[1],
-    useVariable(config.additionalVar3  ?? null)[1],
-    useVariable(config.additionalVar4  ?? null)[1],
-    useVariable(config.additionalVar5  ?? null)[1],
-    useVariable(config.additionalVar6  ?? null)[1],
-    useVariable(config.additionalVar7  ?? null)[1],
-    useVariable(config.additionalVar8  ?? null)[1],
-    useVariable(config.additionalVar9  ?? null)[1],
-    useVariable(config.additionalVar10 ?? null)[1],
-    useVariable(config.additionalVar11 ?? null)[1],
-    useVariable(config.additionalVar12 ?? null)[1],
-    useVariable(config.additionalVar13 ?? null)[1],
-    useVariable(config.additionalVar14 ?? null)[1],
+    useVariable(config.additionalVar0  || '')[1],
+    useVariable(config.additionalVar1  || '')[1],
+    useVariable(config.additionalVar2  || '')[1],
+    useVariable(config.additionalVar3  || '')[1],
+    useVariable(config.additionalVar4  || '')[1],
+    useVariable(config.additionalVar5  || '')[1],
+    useVariable(config.additionalVar6  || '')[1],
+    useVariable(config.additionalVar7  || '')[1],
+    useVariable(config.additionalVar8  || '')[1],
+    useVariable(config.additionalVar9  || '')[1],
+    useVariable(config.additionalVar10 || '')[1],
+    useVariable(config.additionalVar11 || '')[1],
+    useVariable(config.additionalVar12 || '')[1],
+    useVariable(config.additionalVar13 || '')[1],
+    useVariable(config.additionalVar14 || '')[1],
   ];
   /* eslint-enable react-hooks/rules-of-hooks */
 
