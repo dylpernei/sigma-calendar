@@ -287,10 +287,18 @@ function App() {
         ? config.eventFields
         : (config.eventFields ? [config.eventFields] : []);
 
+      console.log('[AdditionalFields]', {
+        fieldIds,
+        additionalVar0: config.additionalVar0,
+        additionalFields: event?.additionalFields,
+        elementColumns: Object.fromEntries(fieldIds.map(id => [id, elementColumns?.[id]]))
+      });
+
       fieldIds.slice(0, MAX_ADDITIONAL_VARS).forEach((fieldId, i) => {
         if (config[`additionalVar${i}`] === undefined) return; // skip unregistered slots
         const colName = elementColumns?.[fieldId]?.name || fieldId;
         const value = hasEvent ? (event?.additionalFields?.[colName] ?? '') : '';
+        console.log(`[AdditionalFields] slot ${i}: fieldId=${fieldId}, colName=${colName}, value=${value}, varKey=${config[`additionalVar${i}`]}`);
         additionalVarSetters[i](String(value));
       });
 
