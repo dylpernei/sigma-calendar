@@ -287,12 +287,15 @@ function App() {
         return String(d);
       };
 
-      if (config.selectedEventID     !== undefined) setEventIdVariable(hasEvent ? String(eventId) : '');
-      if (config.selectedDate        !== undefined) setDateVariable(date);
-      if (config.selectedTitle       !== undefined) setTitleVariable(hasEvent ? (event?.title ?? '') : '');
-      if (config.selectedCategory    !== undefined) setCategoryVariable(hasEvent ? (event?.category ?? '') : '');
-      if (config.selectedEndDate     !== undefined) setEndDateVariable(hasEvent ? formatDate(event?.end) : '');
-      if (config.selectedDescription !== undefined) setDescriptionVariable(hasEvent ? (event?.description ?? '') : '');
+      // Only write to slots that are linked to an actual control (non-null string).
+      // null  = registered but no control linked → writing causes "cannot change null-type control value"
+      // undefined = slot not registered at all → skip
+      if (config.selectedEventID     != null) setEventIdVariable(hasEvent ? String(eventId) : '');
+      if (config.selectedDate        != null) setDateVariable(date);
+      if (config.selectedTitle       != null) setTitleVariable(hasEvent ? (event?.title ?? '') : '');
+      if (config.selectedCategory    != null) setCategoryVariable(hasEvent ? (event?.category ?? '') : '');
+      if (config.selectedEndDate     != null) setEndDateVariable(hasEvent ? formatDate(event?.end) : '');
+      if (config.selectedDescription != null) setDescriptionVariable(hasEvent ? (event?.description ?? '') : '');
 
       // Additional field variables — read raw values from sigmaData so we can
       // apply type-aware formatting before writing to the Sigma control.
@@ -301,7 +304,7 @@ function App() {
         : (config.eventFields ? [config.eventFields] : []);
 
       fieldIds.slice(0, MAX_ADDITIONAL_VARS).forEach((fieldId, i) => {
-        if (config[`additionalVar${i}`] === undefined) return; // skip unregistered slots
+        if (config[`additionalVar${i}`] == null) return; // skip unlinked/unregistered slots
         const rawValue = hasEvent && event?.originalIndex != null
           ? sigmaData?.[fieldId]?.[event.originalIndex]
           : null;
