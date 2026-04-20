@@ -282,8 +282,6 @@ function App() {
 
   const handleEventClick = async (eventId, date, event) => {
     try {
-      console.log('Event click triggered:', { eventId, date, event });
-
       const hasEvent = eventId != null && eventId !== '';
 
       const formatDate = (d) => {
@@ -291,6 +289,24 @@ function App() {
         if (d instanceof Date) return d.toISOString().split('T')[0];
         return String(d);
       };
+
+      console.log('[Writeback Debug] config keys:', {
+        selectedEventID: config.selectedEventID,
+        selectedDate: config.selectedDate,
+        selectedTitle: config.selectedTitle,
+        selectedCategory: config.selectedCategory,
+        selectedEndDate: config.selectedEndDate,
+        selectedDescription: config.selectedDescription,
+      });
+      console.log('[Writeback Debug] values to write:', {
+        eventId: hasEvent ? String(eventId) : '',
+        date,
+        title: event?.title,
+        category: event?.category,
+        endDate: formatDate(event?.end),
+        description: event?.description,
+        additionalFields: event?.additionalFields,
+      });
 
       // Core variables
       setEventIdVariable(hasEvent ? String(eventId) : '');
