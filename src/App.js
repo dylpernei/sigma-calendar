@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { client, useConfig, useElementData, useElementColumns, useActionTrigger } from '@sigmacomputing/plugin';
 import Settings, { DEFAULT_SETTINGS } from './Settings';
 import HelpModal from './HelpModal';
@@ -231,8 +231,12 @@ function App() {
     }
   }, [settings.styling]);
 
-  // Process calendar data with column information
-  const calendarData = processCalendarData(sigmaData, config, settings, elementColumns);
+  // Process calendar data — memoized so it only reruns when source data actually changes
+  const calendarData = useMemo(
+    () => processCalendarData(sigmaData, config, settings, elementColumns),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sigmaData, elementColumns, config.source, config.title, config.startDate, config.endDate, config.description, config.category, config.eventFields, config.ID, settings]
+  );
 
   const handleSettingsSave = (newSettings) => {
     // Record save time to prevent config.config useEffect from overwriting with stale data
@@ -251,31 +255,36 @@ function App() {
         return String(d);
       };
 
-      // Write directly via client.config.setVariable — skip slots not linked to a control.
-      // null  = registered but no control linked → skip (would cause "cannot change null-type control value")
-      // undefined = slot not in panel → skip
-      if (config.selectedEventID     != null) client.config.setVariable(config.selectedEventID,     hasEvent ? String(eventId) : '');
-      if (config.selectedDate        != null) client.config.setVariable(config.selectedDate,        date);
-      if (config.selectedTitle       != null) client.config.setVariable(config.selectedTitle,       hasEvent ? (event?.title ?? '') : '');
-      if (config.selectedCategory    != null) client.config.setVariable(config.selectedCategory,    hasEvent ? (event?.category ?? '') : '');
-      if (config.selectedEndDate     != null) client.config.setVariable(config.selectedEndDate,     hasEvent ? formatDate(event?.end) : '');
-      if (config.selectedDescription != null) client.config.setVariable(config.selectedDescription, hasEvent ? (event?.description ?? '') : '');
+      // Helper: only write if varRef is a real linked variable. Catches SDK errors
+      // (e.g. stale/invalid refs) so one bad slot can't block the rest.
+      const trySetVariable = (varRef, value) => {
+        if (varRef == null) return;
+        try {
+          client.config.setVariable(varRef, value);
+        } catch (e) {
+          console.warn(`setVariable failed for ref "${varRef}":`, e.message);
+        }
+      };
 
-      // Additional field variables — call client.config.setVariable directly with the
-      // panel slot name as configId. This avoids useVariable hook binding issues where
-      // hooks bound to '' on first render may not update when config arrives later.
+      trySetVariable(config.selectedEventID,     hasEvent ? String(eventId) : '');
+      trySetVariable(config.selectedDate,        date);
+      trySetVariable(config.selectedTitle,       hasEvent ? (event?.title ?? '') : '');
+      trySetVariable(config.selectedCategory,    hasEvent ? (event?.category ?? '') : '');
+      trySetVariable(config.selectedEndDate,     hasEvent ? formatDate(event?.end) : '');
+      trySetVariable(config.selectedDescription, hasEvent ? (event?.description ?? '') : '');
+
       const fieldIds = Array.isArray(config.eventFields)
         ? config.eventFields
         : (config.eventFields ? [config.eventFields] : []);
 
       fieldIds.slice(0, MAX_ADDITIONAL_VARS).forEach((fieldId, i) => {
-        if (config[`additionalVar${i}`] == null) return; // skip unlinked/unregistered slots
+        const varRef = config[`additionalVar${i}`];
+        if (varRef == null) return;
         const rawValue = hasEvent && event?.originalIndex != null
           ? sigmaData?.[fieldId]?.[event.originalIndex]
           : null;
         const columnType = elementColumns?.[fieldId]?.columnType;
-        const value = rawValue != null ? formatColumnValue(rawValue, columnType) : '';
-        client.config.setVariable(config[`additionalVar${i}`], value);
+        trySetVariable(varRef, rawValue != null ? formatColumnValue(rawValue, columnType) : '');
       });
 
       if (triggerEventClick && hasEvent) {
