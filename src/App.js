@@ -11,39 +11,42 @@ import './App.css';
 
 const MAX_ADDITIONAL_VARS = 15;
 
-// Build the panel definition with given additional-field labels.
-// Keeping slot *names* stable across calls preserves existing variable connections.
-function buildPanelDefinition(additionalLabels = []) {
-  const additionalVarSlots = Array.from({ length: MAX_ADDITIONAL_VARS }, (_, i) => ({
-    name: `additionalVar${i}`,
-    type: 'variable',
-    label: additionalLabels[i] || `Additional Field ${i + 1}`,
-  }));
-  return [
-    { name: 'source',       type: 'element' },
-    { name: 'ID',           type: 'column', source: 'source', allowMultiple: false, label: 'ID Column' },
-    { name: 'title',        type: 'column', source: 'source', allowMultiple: false, label: 'Event Title' },
-    { name: 'startDate',    type: 'column', source: 'source', allowMultiple: false, label: 'Start Date' },
-    { name: 'endDate',      type: 'column', source: 'source', allowMultiple: false, label: 'End Date (Optional)' },
-    { name: 'description',  type: 'column', source: 'source', allowMultiple: false, label: 'Description (Optional)' },
-    { name: 'category',     type: 'column', source: 'source', allowMultiple: false, label: 'Category/Color (Optional)' },
-    { name: 'eventFields',  type: 'column', source: 'source', allowMultiple: true,  label: 'Additional Fields' },
-    { name: 'selectedEventID',     type: 'variable', label: 'Selected Event ID' },
-    { name: 'selectedDate',        type: 'variable', label: 'Selected Start Date' },
-    { name: 'selectedTitle',       type: 'variable', label: 'Selected Title' },
-    { name: 'selectedCategory',    type: 'variable', label: 'Selected Category' },
-    { name: 'selectedEndDate',     type: 'variable', label: 'Selected End Date' },
-    { name: 'selectedDescription', type: 'variable', label: 'Selected Description' },
-    ...additionalVarSlots,
-    { name: 'config',       type: 'text',           label: 'Settings Config (JSON)', defaultValue: '{}' },
-    { name: 'editMode',     type: 'toggle',          label: 'Edit Mode' },
-    { name: 'onEventClick', type: 'action-trigger',  label: 'Event Click Action' },
-  ];
-}
-
-// Initial registration with generic labels — connections are preserved on subsequent calls
-// as long as slot names stay the same.
-client.config.configureEditorPanel(buildPanelDefinition());
+// Static panel registration — never re-called at runtime so Sigma never resets
+// variable connections. Slot names are stable; labels are generic numbers.
+client.config.configureEditorPanel([
+  { name: 'source',       type: 'element' },
+  { name: 'ID',           type: 'column', source: 'source', allowMultiple: false, label: 'ID Column' },
+  { name: 'title',        type: 'column', source: 'source', allowMultiple: false, label: 'Event Title' },
+  { name: 'startDate',    type: 'column', source: 'source', allowMultiple: false, label: 'Start Date' },
+  { name: 'endDate',      type: 'column', source: 'source', allowMultiple: false, label: 'End Date (Optional)' },
+  { name: 'description',  type: 'column', source: 'source', allowMultiple: false, label: 'Description (Optional)' },
+  { name: 'category',     type: 'column', source: 'source', allowMultiple: false, label: 'Category/Color (Optional)' },
+  { name: 'eventFields',  type: 'column', source: 'source', allowMultiple: true,  label: 'Additional Fields' },
+  { name: 'selectedEventID',     type: 'variable', label: 'Selected Event ID' },
+  { name: 'selectedDate',        type: 'variable', label: 'Selected Start Date' },
+  { name: 'selectedTitle',       type: 'variable', label: 'Selected Title' },
+  { name: 'selectedCategory',    type: 'variable', label: 'Selected Category' },
+  { name: 'selectedEndDate',     type: 'variable', label: 'Selected End Date' },
+  { name: 'selectedDescription', type: 'variable', label: 'Selected Description' },
+  { name: 'additionalVar0',  type: 'variable', label: 'Additional Field 1' },
+  { name: 'additionalVar1',  type: 'variable', label: 'Additional Field 2' },
+  { name: 'additionalVar2',  type: 'variable', label: 'Additional Field 3' },
+  { name: 'additionalVar3',  type: 'variable', label: 'Additional Field 4' },
+  { name: 'additionalVar4',  type: 'variable', label: 'Additional Field 5' },
+  { name: 'additionalVar5',  type: 'variable', label: 'Additional Field 6' },
+  { name: 'additionalVar6',  type: 'variable', label: 'Additional Field 7' },
+  { name: 'additionalVar7',  type: 'variable', label: 'Additional Field 8' },
+  { name: 'additionalVar8',  type: 'variable', label: 'Additional Field 9' },
+  { name: 'additionalVar9',  type: 'variable', label: 'Additional Field 10' },
+  { name: 'additionalVar10', type: 'variable', label: 'Additional Field 11' },
+  { name: 'additionalVar11', type: 'variable', label: 'Additional Field 12' },
+  { name: 'additionalVar12', type: 'variable', label: 'Additional Field 13' },
+  { name: 'additionalVar13', type: 'variable', label: 'Additional Field 14' },
+  { name: 'additionalVar14', type: 'variable', label: 'Additional Field 15' },
+  { name: 'config',       type: 'text',           label: 'Settings Config (JSON)', defaultValue: '{}' },
+  { name: 'editMode',     type: 'toggle',          label: 'Edit Mode' },
+  { name: 'onEventClick', type: 'action-trigger',  label: 'Event Click Action' },
+]);
 
 function App() {
   const config = useConfig();
@@ -65,23 +68,6 @@ function App() {
 
   // Track when settings were saved locally to avoid race condition with stale config.config updates
   const lastSettingsSaveTime = useRef(0);
-
-  // Dynamic panel labels — re-register only when the selected column names actually change.
-  // Slot *names* are stable so Sigma preserves existing variable connections.
-  const additionalLabelKey = (Array.isArray(config.eventFields) ? config.eventFields : [])
-    .map(k => elementColumns?.[k]?.name ?? k)
-    .join('\x00');
-
-  useEffect(() => {
-    const fieldKeys = Array.isArray(config.eventFields)
-      ? config.eventFields
-      : (config.eventFields ? [config.eventFields] : []);
-    const labels = fieldKeys.map(k =>
-      elementColumns?.[k]?.name ? `Selected ${elementColumns[k].name}` : null
-    );
-    client.config.configureEditorPanel(buildPanelDefinition(labels));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [additionalLabelKey]);
 
   // Function to apply theme colors to CSS custom properties
   const applyThemeColors = (theme, customColors = null) => {
