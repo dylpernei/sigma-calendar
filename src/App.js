@@ -8,52 +8,47 @@ import { processCalendarData } from './utils/dataProcessor';
 import CalendarView from './CalendarView';
 import './App.css';
 
-// Maximum number of additional field variable slots to pre-allocate.
-// Covers up to 15 extra columns while keeping hooks count fixed.
 const MAX_ADDITIONAL_VARS = 15;
 
-// Build the editor panel config. Called once on load and again whenever
-// eventFields or column metadata changes so labels stay in sync.
-function buildEditorPanel(eventFieldIds = [], columns = {}) {
-  const base = [
-    { name: 'source', type: 'element' },
-    { name: 'ID', type: 'column', source: 'source', allowMultiple: false, label: 'ID Column' },
-    { name: 'title', type: 'column', source: 'source', allowMultiple: false, label: 'Event Title' },
-    { name: 'startDate', type: 'column', source: 'source', allowMultiple: false, label: 'Start Date' },
-    { name: 'endDate', type: 'column', source: 'source', allowMultiple: false, label: 'End Date (Optional)' },
-    { name: 'description', type: 'column', source: 'source', allowMultiple: false, label: 'Description (Optional)' },
-    { name: 'category', type: 'column', source: 'source', allowMultiple: false, label: 'Category/Color (Optional)' },
-    { name: 'eventFields', type: 'column', source: 'source', allowMultiple: true, label: 'Additional Fields' },
-    // Core writeback variables
-    { name: 'selectedEventID', type: 'variable', label: 'Selected Event ID' },
-    { name: 'selectedDate', type: 'variable', label: 'Selected Start Date' },
-    { name: 'selectedTitle', type: 'variable', label: 'Selected Title' },
-    { name: 'selectedCategory', type: 'variable', label: 'Selected Category' },
-    { name: 'selectedEndDate', type: 'variable', label: 'Selected End Date' },
-    { name: 'selectedDescription', type: 'variable', label: 'Selected Description' },
-  ];
-
-  // One variable slot per additional field, labeled with the actual column name
-  for (let i = 0; i < MAX_ADDITIONAL_VARS; i++) {
-    const fieldId = eventFieldIds[i];
-    const colName = fieldId && columns[fieldId]?.name ? columns[fieldId].name : null;
-    // Only include slots that are in use — keeps the panel tidy
-    if (colName) {
-      base.push({ name: `additionalVar${i}`, type: 'variable', label: `Selected: ${colName}` });
-    }
-  }
-
-  base.push(
-    { name: 'config', type: 'text', label: 'Settings Config (JSON)', defaultValue: '{}' },
-    { name: 'editMode', type: 'toggle', label: 'Edit Mode' },
-    { name: 'onEventClick', type: 'action-trigger', label: 'Event Click Action' }
-  );
-
-  return base;
-}
-
-// Initial registration with no additional fields
-client.config.configureEditorPanel(buildEditorPanel());
+// Single static panel registration — never re-called after load so Sigma
+// never resets variable connections. Additional field slots use generic
+// numbered labels; link them in order to match your Additional Fields columns.
+client.config.configureEditorPanel([
+  { name: 'source', type: 'element' },
+  { name: 'ID',          type: 'column', source: 'source', allowMultiple: false, label: 'ID Column' },
+  { name: 'title',       type: 'column', source: 'source', allowMultiple: false, label: 'Event Title' },
+  { name: 'startDate',   type: 'column', source: 'source', allowMultiple: false, label: 'Start Date' },
+  { name: 'endDate',     type: 'column', source: 'source', allowMultiple: false, label: 'End Date (Optional)' },
+  { name: 'description', type: 'column', source: 'source', allowMultiple: false, label: 'Description (Optional)' },
+  { name: 'category',    type: 'column', source: 'source', allowMultiple: false, label: 'Category/Color (Optional)' },
+  { name: 'eventFields', type: 'column', source: 'source', allowMultiple: true,  label: 'Additional Fields' },
+  // Core writeback variables
+  { name: 'selectedEventID',     type: 'variable', label: 'Selected Event ID' },
+  { name: 'selectedDate',        type: 'variable', label: 'Selected Start Date' },
+  { name: 'selectedTitle',       type: 'variable', label: 'Selected Title' },
+  { name: 'selectedCategory',    type: 'variable', label: 'Selected Category' },
+  { name: 'selectedEndDate',     type: 'variable', label: 'Selected End Date' },
+  { name: 'selectedDescription', type: 'variable', label: 'Selected Description' },
+  // Additional field slots — link slot N to the Nth column in Additional Fields
+  { name: 'additionalVar0',  type: 'variable', label: 'Additional Field 1' },
+  { name: 'additionalVar1',  type: 'variable', label: 'Additional Field 2' },
+  { name: 'additionalVar2',  type: 'variable', label: 'Additional Field 3' },
+  { name: 'additionalVar3',  type: 'variable', label: 'Additional Field 4' },
+  { name: 'additionalVar4',  type: 'variable', label: 'Additional Field 5' },
+  { name: 'additionalVar5',  type: 'variable', label: 'Additional Field 6' },
+  { name: 'additionalVar6',  type: 'variable', label: 'Additional Field 7' },
+  { name: 'additionalVar7',  type: 'variable', label: 'Additional Field 8' },
+  { name: 'additionalVar8',  type: 'variable', label: 'Additional Field 9' },
+  { name: 'additionalVar9',  type: 'variable', label: 'Additional Field 10' },
+  { name: 'additionalVar10', type: 'variable', label: 'Additional Field 11' },
+  { name: 'additionalVar11', type: 'variable', label: 'Additional Field 12' },
+  { name: 'additionalVar12', type: 'variable', label: 'Additional Field 13' },
+  { name: 'additionalVar13', type: 'variable', label: 'Additional Field 14' },
+  { name: 'additionalVar14', type: 'variable', label: 'Additional Field 15' },
+  { name: 'config',      type: 'text',           label: 'Settings Config (JSON)', defaultValue: '{}' },
+  { name: 'editMode',    type: 'toggle',          label: 'Edit Mode' },
+  { name: 'onEventClick', type: 'action-trigger', label: 'Event Click Action' },
+]);
 
 function App() {
   const config = useConfig();
@@ -98,15 +93,6 @@ function App() {
 
   // Track when settings were saved locally to avoid race condition with stale config.config updates
   const lastSettingsSaveTime = useRef(0);
-
-  // Rebuild editor panel whenever additional fields or column metadata changes
-  // so variable slot labels always reflect the actual column names
-  useEffect(() => {
-    const fieldIds = Array.isArray(config.eventFields)
-      ? config.eventFields
-      : (config.eventFields ? [config.eventFields] : []);
-    client.config.configureEditorPanel(buildEditorPanel(fieldIds, elementColumns || {}));
-  }, [config.eventFields, elementColumns]);
 
   // Function to apply theme colors to CSS custom properties
   const applyThemeColors = (theme, customColors = null) => {
@@ -290,21 +276,12 @@ function App() {
         return String(d);
       };
 
-      console.log('[Writeback] config variable keys:', {
-        selectedEventID:     config.selectedEventID,
-        selectedDate:        config.selectedDate,
-        selectedTitle:       config.selectedTitle,
-        selectedCategory:    config.selectedCategory,
-        selectedEndDate:     config.selectedEndDate,
-        selectedDescription: config.selectedDescription,
-      });
-
-      if (config.selectedEventID)     { setEventIdVariable(hasEvent ? String(eventId) : '');               console.log('[Writeback] wrote eventId:', hasEvent ? String(eventId) : ''); }
-      if (config.selectedDate)        { setDateVariable(date);                                              console.log('[Writeback] wrote date:', date); }
-      if (config.selectedTitle)       { setTitleVariable(hasEvent ? (event?.title ?? '') : '');             console.log('[Writeback] wrote title:', event?.title); }
-      if (config.selectedCategory)    { setCategoryVariable(hasEvent ? (event?.category ?? '') : '');       console.log('[Writeback] wrote category:', event?.category); }
-      if (config.selectedEndDate)     { setEndDateVariable(hasEvent ? formatDate(event?.end) : '');         console.log('[Writeback] wrote endDate:', formatDate(event?.end)); }
-      if (config.selectedDescription) { setDescriptionVariable(hasEvent ? (event?.description ?? '') : ''); console.log('[Writeback] wrote description:', event?.description); }
+      if (config.selectedEventID)     setEventIdVariable(hasEvent ? String(eventId) : '');
+      if (config.selectedDate)        setDateVariable(date);
+      if (config.selectedTitle)       setTitleVariable(hasEvent ? (event?.title ?? '') : '');
+      if (config.selectedCategory)    setCategoryVariable(hasEvent ? (event?.category ?? '') : '');
+      if (config.selectedEndDate)     setEndDateVariable(hasEvent ? formatDate(event?.end) : '');
+      if (config.selectedDescription) setDescriptionVariable(hasEvent ? (event?.description ?? '') : '');
 
       // Additional field variables
       const fieldIds = Array.isArray(config.eventFields)
