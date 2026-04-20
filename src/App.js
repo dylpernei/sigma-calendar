@@ -290,14 +290,21 @@ function App() {
         return String(d);
       };
 
-      // Only call a setter when that slot is actually linked to a Sigma control.
-      // Calling with an unlinked (undefined) key produces "invalid control variable name".
-      if (config.selectedEventID)     setEventIdVariable(hasEvent ? String(eventId) : '');
-      if (config.selectedDate)        setDateVariable(date);
-      if (config.selectedTitle)       setTitleVariable(hasEvent ? (event?.title ?? '') : '');
-      if (config.selectedCategory)    setCategoryVariable(hasEvent ? (event?.category ?? '') : '');
-      if (config.selectedEndDate)     setEndDateVariable(hasEvent ? formatDate(event?.end) : '');
-      if (config.selectedDescription) setDescriptionVariable(hasEvent ? (event?.description ?? '') : '');
+      console.log('[Writeback] config variable keys:', {
+        selectedEventID:     config.selectedEventID,
+        selectedDate:        config.selectedDate,
+        selectedTitle:       config.selectedTitle,
+        selectedCategory:    config.selectedCategory,
+        selectedEndDate:     config.selectedEndDate,
+        selectedDescription: config.selectedDescription,
+      });
+
+      if (config.selectedEventID)     { setEventIdVariable(hasEvent ? String(eventId) : '');               console.log('[Writeback] wrote eventId:', hasEvent ? String(eventId) : ''); }
+      if (config.selectedDate)        { setDateVariable(date);                                              console.log('[Writeback] wrote date:', date); }
+      if (config.selectedTitle)       { setTitleVariable(hasEvent ? (event?.title ?? '') : '');             console.log('[Writeback] wrote title:', event?.title); }
+      if (config.selectedCategory)    { setCategoryVariable(hasEvent ? (event?.category ?? '') : '');       console.log('[Writeback] wrote category:', event?.category); }
+      if (config.selectedEndDate)     { setEndDateVariable(hasEvent ? formatDate(event?.end) : '');         console.log('[Writeback] wrote endDate:', formatDate(event?.end)); }
+      if (config.selectedDescription) { setDescriptionVariable(hasEvent ? (event?.description ?? '') : ''); console.log('[Writeback] wrote description:', event?.description); }
 
       // Additional field variables
       const fieldIds = Array.isArray(config.eventFields)
