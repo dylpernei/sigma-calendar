@@ -211,4 +211,55 @@ export function getEventTextColor(category, colorSettings = {}) {
     if (typeof custom === 'object' && custom.text) return custom.text;
   }
   return 'white';
-} 
+}
+
+/**
+ * Format a raw column value for writeback to a Sigma control variable,
+ * using the column's type to produce the most useful string representation.
+ *
+ * Type handling:
+ *   number / integer / float / decimal → numeric string (no trailing ".0")
+ *   date / datetime / timestamp        → "YYYY-MM-DD" (local date)
+ *   boolean                            → "true" | "false"
+ *   variant / object / array           → JSON string
+ *   everything else (text, etc.)       → plain string
+ *
+ * @param {any} rawValue - Raw value from sigmaData
+ * @param {string} columnType - columnType from elementColumns (case-insensitive)
+ * @returns {string}
+ */
+export function formatColumnValue(rawValue, columnType) {
+  if (rawValue == null) return '';
+
+  const ct = String(columnType || '').toLowerCase();
+
+  // ── Numeric ───────────────────────────────────────────────────────────────
+  if (/int|float|double|decimal|numeric|number|real/.test(ct)) {
+    const n = Number(rawValue);
+    if (!isNaN(n)) {
+      // Remove unnecessary decimal (e.g. 42.0 → "42")
+      return Number.isInteger(n) ? String(n) : String(n);
+    }
+  }
+
+  // ── Date / Timestamp ──────────────────────────────────────────────────────
+  if (/date|timestamp|datetime/.test(ct)) {
+    const d = parseDate(rawValue);
+    if (d) return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // ── Boolean ───────────────────────────────────────────────────────────────
+  if (ct === 'boolean' || ct === 'bool') {
+    const v = String(rawValue).toLowerCase();
+    return (v === 'true' || v === '1' || v === 'yes') ? 'true' : 'false';
+  }
+
+  // ── Variant / JSON ────────────────────────────────────────────────────────
+  if (/variant|object|array|json/.test(ct)) {
+    if (typeof rawValue === 'string') return rawValue;
+    try { return JSON.stringify(rawValue); } catch { /* fall through */ }
+  }
+
+  // ── Default (text / varchar / unknown) ────────────────────────────────────
+  return String(rawValue);
+}
