@@ -268,12 +268,12 @@ function App() {
       // Write directly via client.config.setVariable — skip slots not linked to a control.
       // null  = registered but no control linked → skip (would cause "cannot change null-type control value")
       // undefined = slot not in panel → skip
-      if (config.selectedEventID     != null) client.config.setVariable('selectedEventID',     hasEvent ? String(eventId) : '');
-      if (config.selectedDate        != null) client.config.setVariable('selectedDate',        date);
-      if (config.selectedTitle       != null) client.config.setVariable('selectedTitle',       hasEvent ? (event?.title ?? '') : '');
-      if (config.selectedCategory    != null) client.config.setVariable('selectedCategory',    hasEvent ? (event?.category ?? '') : '');
-      if (config.selectedEndDate     != null) client.config.setVariable('selectedEndDate',     hasEvent ? formatDate(event?.end) : '');
-      if (config.selectedDescription != null) client.config.setVariable('selectedDescription', hasEvent ? (event?.description ?? '') : '');
+      if (config.selectedEventID     != null) client.config.setVariable(config.selectedEventID,     hasEvent ? String(eventId) : '');
+      if (config.selectedDate        != null) client.config.setVariable(config.selectedDate,        date);
+      if (config.selectedTitle       != null) client.config.setVariable(config.selectedTitle,       hasEvent ? (event?.title ?? '') : '');
+      if (config.selectedCategory    != null) client.config.setVariable(config.selectedCategory,    hasEvent ? (event?.category ?? '') : '');
+      if (config.selectedEndDate     != null) client.config.setVariable(config.selectedEndDate,     hasEvent ? formatDate(event?.end) : '');
+      if (config.selectedDescription != null) client.config.setVariable(config.selectedDescription, hasEvent ? (event?.description ?? '') : '');
 
       // Additional field variables — call client.config.setVariable directly with the
       // panel slot name as configId. This avoids useVariable hook binding issues where
@@ -289,7 +289,7 @@ function App() {
           : null;
         const columnType = elementColumns?.[fieldId]?.columnType;
         const value = rawValue != null ? formatColumnValue(rawValue, columnType) : '';
-        client.config.setVariable(`additionalVar${i}`, value);
+        client.config.setVariable(config[`additionalVar${i}`], value);
       });
 
       if (triggerEventClick && hasEvent) {
