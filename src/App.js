@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState, useRef } from 'react';
-import { client, useConfig, useElementData, useElementColumns, useVariable, useActionTrigger } from '@sigmacomputing/plugin';
+import { client, useConfig, useElementData, useElementColumns, useActionTrigger } from '@sigmacomputing/plugin';
 import Settings, { DEFAULT_SETTINGS } from './Settings';
 import HelpModal from './HelpModal';
 import Onboarding from './components/Onboarding';
@@ -57,33 +57,9 @@ function App() {
   // useVariable must never receive null/undefined — pass '' for unlinked slots
   // so Sigma gets a valid no-op binding. The != null guards in handleEventClick
   // ensure we only call setters for slots actually linked to a control.
-  const [, setEventIdVariable]     = useVariable(config.selectedEventID     || '');
-  const [, setDateVariable]        = useVariable(config.selectedDate        || '');
-  const [, setTitleVariable]       = useVariable(config.selectedTitle       || '');
-  const [, setCategoryVariable]    = useVariable(config.selectedCategory    || '');
-  const [, setEndDateVariable]     = useVariable(config.selectedEndDate     || '');
-  const [, setDescriptionVariable] = useVariable(config.selectedDescription || '');
-
-  // Pre-allocate MAX_ADDITIONAL_VARS hooks — always called in the same order
-  /* eslint-disable react-hooks/rules-of-hooks */
-  const additionalVarSetters = [
-    useVariable(config.additionalVar0  || '')[1],
-    useVariable(config.additionalVar1  || '')[1],
-    useVariable(config.additionalVar2  || '')[1],
-    useVariable(config.additionalVar3  || '')[1],
-    useVariable(config.additionalVar4  || '')[1],
-    useVariable(config.additionalVar5  || '')[1],
-    useVariable(config.additionalVar6  || '')[1],
-    useVariable(config.additionalVar7  || '')[1],
-    useVariable(config.additionalVar8  || '')[1],
-    useVariable(config.additionalVar9  || '')[1],
-    useVariable(config.additionalVar10 || '')[1],
-    useVariable(config.additionalVar11 || '')[1],
-    useVariable(config.additionalVar12 || '')[1],
-    useVariable(config.additionalVar13 || '')[1],
-    useVariable(config.additionalVar14 || '')[1],
-  ];
-  /* eslint-enable react-hooks/rules-of-hooks */
+  // All variables written directly via client.config.setVariable in handleEventClick.
+  // No useVariable hooks needed — this avoids binding-at-render issues where hooks
+  // bound to '' on first render would silently fail when config arrived later.
 
   const triggerEventClick = useActionTrigger(config.onEventClick);
 
@@ -289,18 +265,19 @@ function App() {
         return String(d);
       };
 
-      // Only write to slots that are linked to an actual control (non-null string).
-      // null  = registered but no control linked → writing causes "cannot change null-type control value"
-      // undefined = slot not registered at all → skip
-      if (config.selectedEventID     != null) setEventIdVariable(hasEvent ? String(eventId) : '');
-      if (config.selectedDate        != null) setDateVariable(date);
-      if (config.selectedTitle       != null) setTitleVariable(hasEvent ? (event?.title ?? '') : '');
-      if (config.selectedCategory    != null) setCategoryVariable(hasEvent ? (event?.category ?? '') : '');
-      if (config.selectedEndDate     != null) setEndDateVariable(hasEvent ? formatDate(event?.end) : '');
-      if (config.selectedDescription != null) setDescriptionVariable(hasEvent ? (event?.description ?? '') : '');
+      // Write directly via client.config.setVariable — skip slots not linked to a control.
+      // null  = registered but no control linked → skip (would cause "cannot change null-type control value")
+      // undefined = slot not in panel → skip
+      if (config.selectedEventID     != null) client.config.setVariable('selectedEventID',     hasEvent ? String(eventId) : '');
+      if (config.selectedDate        != null) client.config.setVariable('selectedDate',        date);
+      if (config.selectedTitle       != null) client.config.setVariable('selectedTitle',       hasEvent ? (event?.title ?? '') : '');
+      if (config.selectedCategory    != null) client.config.setVariable('selectedCategory',    hasEvent ? (event?.category ?? '') : '');
+      if (config.selectedEndDate     != null) client.config.setVariable('selectedEndDate',     hasEvent ? formatDate(event?.end) : '');
+      if (config.selectedDescription != null) client.config.setVariable('selectedDescription', hasEvent ? (event?.description ?? '') : '');
 
-      // Additional field variables — read raw values from sigmaData so we can
-      // apply type-aware formatting before writing to the Sigma control.
+      // Additional field variables — call client.config.setVariable directly with the
+      // panel slot name as configId. This avoids useVariable hook binding issues where
+      // hooks bound to '' on first render may not update when config arrives later.
       const fieldIds = Array.isArray(config.eventFields)
         ? config.eventFields
         : (config.eventFields ? [config.eventFields] : []);
@@ -311,7 +288,8 @@ function App() {
           ? sigmaData?.[fieldId]?.[event.originalIndex]
           : null;
         const columnType = elementColumns?.[fieldId]?.columnType;
-        additionalVarSetters[i](rawValue != null ? formatColumnValue(rawValue, columnType) : '');
+        const value = rawValue != null ? formatColumnValue(rawValue, columnType) : '';
+        client.config.setVariable(`additionalVar${i}`, value);
       });
 
       if (triggerEventClick && hasEvent) {
