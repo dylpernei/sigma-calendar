@@ -306,6 +306,7 @@ function CalendarView({ data, settings, onEventClick, editMode, onOpenSettings }
           setShowEventModal(true);
         }}
         onEventAction={handleEventAction}
+        settings={settings}
       />
       
       <DayEventsModal

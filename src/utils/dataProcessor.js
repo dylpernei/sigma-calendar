@@ -4,7 +4,8 @@ import {
   parseDate,
   getEventColor,
   getEventTextColor,
-  debugEventProcessing
+  debugEventProcessing,
+  formatColumnValue
 } from './columnHelper';
 import { addDays, format, startOfDay, endOfDay } from 'date-fns';
 
@@ -104,13 +105,15 @@ export function processCalendarData(sigmaData, config, settings, elementColumns)
     // Add category to set
     categories.add(category);
 
-    // Extract additional event fields
+    // Extract additional event fields — use the column's type so dates render
+    // as "YYYY-MM-DD" rather than raw millisecond timestamps.
     const additionalFields = {};
     if (config.eventFields && Array.isArray(config.eventFields)) {
       config.eventFields.forEach(fieldKey => {
         if (eventFieldsData[fieldKey] && eventFieldsData[fieldKey][i] != null) {
           const fieldName = getColumnName(elementColumns, fieldKey);
-          additionalFields[fieldName] = String(eventFieldsData[fieldKey][i]);
+          const columnType = elementColumns?.[fieldKey]?.columnType;
+          additionalFields[fieldName] = formatColumnValue(eventFieldsData[fieldKey][i], columnType);
         }
       });
     }

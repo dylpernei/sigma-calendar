@@ -13,6 +13,16 @@ const EventDetailModal = ({
 }) => {
   if (!event) return null;
 
+  const visibility = settings.eventDetailVisibility || {};
+  const showTime = visibility.time !== false;
+  const showDescription = visibility.description !== false;
+  const showCategory = visibility.category !== false;
+  const showSelectButton = settings.showSelectEventButton !== false;
+  const fieldVisibility = visibility.additionalFields || {};
+  const visibleAdditional = Object.entries(event.additionalFields || {}).filter(
+    ([key]) => fieldVisibility[key] !== false
+  );
+
   const formatEventTime = (event) => {
     if (event.allDay) {
       if (isSameDay(event.start, event.end)) {
@@ -55,10 +65,10 @@ const EventDetailModal = ({
               <DialogTitle className="text-xl font-semibold text-left break-words">
                 {event.title}
               </DialogTitle>
-              {event.category && (
+              {showCategory && event.category && (
                 <div className="flex items-center gap-2 mt-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
+                  <div
+                    className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: event.color }}
                   />
                   <span className="text-sm text-muted-foreground">{event.category}</span>
@@ -70,21 +80,23 @@ const EventDetailModal = ({
         
         <div className="space-y-6">
           {/* Time Information */}
-          <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
-              <div>
-                <div className="font-medium text-sm text-muted-foreground mb-1">When</div>
-                <div className="text-sm">{formatEventTime(event)}</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  Duration: {getDuration(event.start, event.end)}
+          {showTime && (
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <div>
+                  <div className="font-medium text-sm text-muted-foreground mb-1">When</div>
+                  <div className="text-sm">{formatEventTime(event)}</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Duration: {getDuration(event.start, event.end)}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Description */}
-          {event.description && (
+          {showDescription && event.description && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Info className="h-5 w-5 text-muted-foreground" />
@@ -97,14 +109,14 @@ const EventDetailModal = ({
           )}
 
           {/* Additional Fields */}
-          {event.additionalFields && Object.keys(event.additionalFields).length > 0 && (
+          {visibleAdditional.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Tag className="h-5 w-5 text-muted-foreground" />
                 <div className="font-medium text-sm text-muted-foreground">Additional Information</div>
               </div>
               <div className="pl-7 space-y-2">
-                {Object.entries(event.additionalFields).map(([key, value]) => (
+                {visibleAdditional.map(([key, value]) => (
                   <div key={key} className="flex justify-between items-start gap-4">
                     <span className="text-sm font-medium text-muted-foreground min-w-0 flex-shrink-0">
                       {key}:
@@ -136,8 +148,8 @@ const EventDetailModal = ({
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
-          {onEventAction && (
-            <Button 
+          {onEventAction && showSelectButton && (
+            <Button
               onClick={() => {
                 onEventAction(event.id, format(event.start, 'yyyy-MM-dd'), event);
                 onClose();
@@ -153,14 +165,17 @@ const EventDetailModal = ({
 };
 
 // Quick Event Preview Modal (lighter version)
-const EventPreviewModal = ({ 
-  event, 
-  isOpen, 
-  onClose, 
+const EventPreviewModal = ({
+  event,
+  isOpen,
+  onClose,
   onViewDetails,
-  onEventAction 
+  onEventAction,
+  settings = {}
 }) => {
   if (!event) return null;
+
+  const showSelectButton = settings.showSelectEventButton !== false;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -206,7 +221,7 @@ const EventPreviewModal = ({
               View Details
             </Button>
           )}
-          {onEventAction && (
+          {onEventAction && showSelectButton && (
             <Button onClick={() => {
               onEventAction(event.id, format(event.start, 'yyyy-MM-dd'), event);
               onClose();

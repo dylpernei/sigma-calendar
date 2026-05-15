@@ -1,16 +1,97 @@
 import React from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday } from 'date-fns';
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  isSameMonth,
+  isToday,
+  startOfDay,
+  endOfDay,
+  isSameDay,
+  differenceInCalendarDays
+} from 'date-fns';
 import { getEventsForDate } from '../../utils/dataProcessor';
 import EventChip from './EventChip';
 import Tooltip, { DateTooltip, EventTooltip } from '../ui/tooltip';
 
-function MonthView({ 
-  currentDate, 
-  events, 
-  settings, 
-  onEventClick, 
-  onEventModalOpen, 
-  onEventPreviewOpen, 
+const HEADER_HEIGHT = 28;
+const BAR_HEIGHT = 20;
+const LANE_GAP = 2;
+const MORE_HEIGHT = 18;
+
+// Returns true if event spans multiple calendar days
+const isMultiDay = (event) =>
+  event.end && !isSameDay(startOfDay(event.start), startOfDay(event.end));
+
+// For one week (7 days), compute bar placements for every event that
+// intersects the week. Each bar gets a lane (vertical row index) so bars
+// don't overlap. The order is start-asc, then duration-desc, then multi-day
+// before single-day — gives continuous spans the top lanes.
+function computeWeekBars(weekDays, events) {
+  const weekStartTs = startOfDay(weekDays[0]).getTime();
+  const weekEndTs = endOfDay(weekDays[6]).getTime();
+
+  const intersecting = events
+    .filter((e) => {
+      const eStart = startOfDay(e.start).getTime();
+      const eEnd = endOfDay(e.end || e.start).getTime();
+      return eStart <= weekEndTs && eEnd >= weekStartTs;
+    })
+    .sort((a, b) => {
+      const aMulti = isMultiDay(a);
+      const bMulti = isMultiDay(b);
+      if (aMulti !== bMulti) return aMulti ? -1 : 1;
+      const startDiff = a.start.getTime() - b.start.getTime();
+      if (startDiff !== 0) return startDiff;
+      return (b.end - b.start) - (a.end - a.start);
+    });
+
+  const bars = [];
+  const lanes = []; // lanes[laneIdx] = [[startCol, endCol], ...]
+
+  for (const event of intersecting) {
+    const rawStart = differenceInCalendarDays(event.start, weekDays[0]);
+    const rawEnd = differenceInCalendarDays(event.end || event.start, weekDays[0]);
+    const startCol = Math.max(0, rawStart);
+    const endCol = Math.min(6, rawEnd);
+    if (endCol < startCol) continue;
+
+    let laneIdx = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const lane = lanes[laneIdx];
+      const conflict = lane && lane.some(([s, e]) => !(endCol < s || startCol > e));
+      if (!conflict) {
+        if (!lanes[laneIdx]) lanes[laneIdx] = [];
+        lanes[laneIdx].push([startCol, endCol]);
+        break;
+      }
+      laneIdx++;
+    }
+
+    bars.push({
+      event,
+      startCol,
+      endCol,
+      lane: laneIdx,
+      clippedStart: rawStart < 0,
+      clippedEnd: rawEnd > 6
+    });
+  }
+
+  return bars;
+}
+
+function MonthView({
+  currentDate,
+  events,
+  settings,
+  onEventClick,
+  onEventModalOpen,
+  onEventPreviewOpen,
   onDayEventsOpen,
   onDateClick,
   mini = false
@@ -22,10 +103,9 @@ function MonthView({
 
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  
-  // Adjust weekdays based on settings
+
   if (settings.weekStartsOn === 1) {
-    weekDays.push(weekDays.shift()); // Move Sunday to end
+    weekDays.push(weekDays.shift());
   }
 
   // Mini view - compact like YearView but for current month only
@@ -40,7 +120,7 @@ function MonthView({
         <h3 className="text-lg font-semibold mb-3 text-center">
           {format(currentDate, 'MMMM yyyy')}
         </h3>
-        
+
         <div className="grid grid-cols-7 gap-1 max-w-full">
           {/* Mini weekday headers */}
           {miniWeekDays.map((day, index) => (
@@ -48,7 +128,7 @@ function MonthView({
               {day}
             </div>
           ))}
-          
+
         {/* Mini calendar days */}
         {days.map((day) => {
           const dayEvents = getEventsForDate(events, day);
@@ -64,7 +144,7 @@ function MonthView({
               </div>
               {dayEvents.slice(0, 3).map(event => (
                 <div key={event.id} className="text-xs mb-1">
-                  <span 
+                  <span
                     className="inline-block w-2 h-2 rounded-full mr-1"
                     style={{ backgroundColor: event.color }}
                   />
@@ -129,6 +209,22 @@ function MonthView({
     );
   }
 
+  // Group days into weeks of 7
+  const weeks = [];
+  for (let i = 0; i < days.length; i += 7) {
+    weeks.push(days.slice(i, i + 7));
+  }
+
+  const maxLanes = Math.max(1, settings.dayMaxEvents || 3);
+
+  const getEventClickHandler = (event, day) => {
+    const mode = settings.eventInteractionMode || 'auto';
+    if (mode === 'tooltip') {
+      return () => onEventClick && onEventClick(event.id, format(day, 'yyyy-MM-dd'), event);
+    }
+    return () => onEventModalOpen && onEventModalOpen(event);
+  };
+
   // Regular month view
   return (
     <div className="h-full flex flex-col">
@@ -141,92 +237,134 @@ function MonthView({
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div className="flex-1 grid grid-cols-7 grid-rows-6">
-        {days.map((day) => {
-          const dayEvents = getEventsForDate(events, day);
-          const isCurrentMonth = isSameMonth(day, currentDate);
-          const isTodayDate = isToday(day);
+      {/* Calendar grid — each week is a row with absolutely positioned event bars */}
+      <div className="flex-1 flex flex-col">
+        {weeks.map((week, weekIdx) => {
+          const weekBars = computeWeekBars(week, events);
+          const visibleBars = weekBars.filter((b) => b.lane < maxLanes);
+          const hiddenBars = weekBars.filter((b) => b.lane >= maxLanes);
+
+          // Per-day count of hidden events for "+N more" link
+          const hiddenPerDay = week.map((d) => {
+            const dStart = startOfDay(d).getTime();
+            const dEnd = endOfDay(d).getTime();
+            return hiddenBars
+              .map((b) => b.event)
+              .filter((e) => {
+                const eS = startOfDay(e.start).getTime();
+                const eE = endOfDay(e.end || e.start).getTime();
+                return eS <= dEnd && eE >= dStart;
+              });
+          });
+
+          const usedLanes = Math.min(maxLanes, weekBars.reduce((m, b) => Math.max(m, b.lane + 1), 0));
+          const rowMinHeight =
+            HEADER_HEIGHT + usedLanes * (BAR_HEIGHT + LANE_GAP) + (hiddenBars.length > 0 ? MORE_HEIGHT : 6);
 
           return (
             <div
-              key={day.toISOString()}
-              className={`
-                border-r border-b border-border p-2 min-h-24 flex flex-col
-                ${!isCurrentMonth ? 'bg-muted/20 text-muted-foreground' : ''}
-                ${isTodayDate ? 'bg-blue-50 dark:bg-blue-950/20' : ''}
-              `}
+              key={weekIdx}
+              className="relative grid grid-cols-7 flex-1"
+              style={{ minHeight: `${rowMinHeight}px` }}
             >
-              {/* Day number with date tooltip */}
-              {settings.showDateTooltips ? (
-                <DateTooltip date={day} onDateClick={onDateClick}>
-                  <div className={`
-                    text-sm font-medium mb-1 cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5
-                    ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : ''}
-                  `}>
-                    {format(day, 'd')}
-                  </div>
-                </DateTooltip>
-              ) : (
-                <div 
-                  className={`
-                    text-sm font-medium mb-1 cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5
-                    ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : ''}
-                  `}
-                  onClick={() => onDateClick && onDateClick(day)}
-                >
-                  {format(day, 'd')}
-                </div>
-              )}
+              {/* Day cells (background, date number, "+N more") */}
+              {week.map((day, dayIdx) => {
+                const isCurrentMonth = isSameMonth(day, currentDate);
+                const isTodayDate = isToday(day);
+                const hidden = hiddenPerDay[dayIdx];
 
-              {/* Events */}
-              <div className="flex-1 space-y-1 min-w-0">
-                {dayEvents.slice(0, settings.dayMaxEvents || 3).map((event) => {
-                  // Determine the appropriate click handler based on interaction mode
-                  const getEventClickHandler = () => {
-                    const mode = settings.eventInteractionMode || 'auto';
-                    if (mode === 'tooltip') {
-                      // Tooltip mode: only trigger Sigma actions, no modal
-                      return () => onEventClick && onEventClick(event.id, format(day, 'yyyy-MM-dd'), event);
-                    } else {
-                      // Modal, both, or auto modes: open modal
-                      return () => onEventModalOpen && onEventModalOpen(event);
-                    }
-                  };
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={`
+                      border-r border-b border-border p-2 flex flex-col
+                      ${!isCurrentMonth ? 'bg-muted/20 text-muted-foreground' : ''}
+                      ${isTodayDate ? 'bg-blue-50 dark:bg-blue-950/20' : ''}
+                    `}
+                  >
+                    {/* Day number with date tooltip */}
+                    {settings.showDateTooltips ? (
+                      <DateTooltip date={day} onDateClick={onDateClick}>
+                        <div className={`
+                          text-sm font-medium cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 inline-block w-fit
+                          ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : ''}
+                        `}>
+                          {format(day, 'd')}
+                        </div>
+                      </DateTooltip>
+                    ) : (
+                      <div
+                        className={`
+                          text-sm font-medium cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 inline-block w-fit
+                          ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : ''}
+                        `}
+                        onClick={() => onDateClick && onDateClick(day)}
+                      >
+                        {format(day, 'd')}
+                      </div>
+                    )}
 
-                  const eventChip = (
-                    <EventChip
-                      event={event}
-                      onClick={getEventClickHandler()}
-                      compact={true}
+                    {/* Reserve space for absolutely-positioned bars */}
+                    <div
+                      className="pointer-events-none"
+                      style={{ height: `${usedLanes * (BAR_HEIGHT + LANE_GAP)}px` }}
                     />
-                  );
 
-                  // Respect interaction mode settings
-                  if (!settings.showEventTooltips || settings.eventInteractionMode === 'modal') {
-                    return <div key={`${event.id}-${day.toISOString()}`} className="min-w-0 w-full">{eventChip}</div>;
-                  }
+                    {/* "+N more" link */}
+                    {hidden.length > 0 && (
+                      <div
+                        className="text-xs text-muted-foreground cursor-pointer hover:text-foreground mt-auto"
+                        onClick={() => {
+                          const dayEvents = getEventsForDate(events, day);
+                          onDayEventsOpen && onDayEventsOpen(day, dayEvents);
+                        }}
+                      >
+                        +{hidden.length} more
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
-                  return (
-                    <EventTooltip 
-                      key={`${event.id}-${day.toISOString()}`} 
-                      event={event}
-                      delay={settings.tooltipDelay}
-                      triggerClassName="block w-full min-w-0"
-                    >
-                      {eventChip}
+              {/* Absolutely positioned event bars layered over the cells */}
+              {visibleBars.map((bar) => {
+                const { event, startCol, endCol, lane, clippedStart, clippedEnd } = bar;
+                const span = endCol - startCol + 1;
+                const left = `calc(${(startCol / 7) * 100}% + 4px)`;
+                const width = `calc(${(span / 7) * 100}% - 8px)`;
+                const top = `${HEADER_HEIGHT + lane * (BAR_HEIGHT + LANE_GAP)}px`;
+
+                const handleClick = getEventClickHandler(event, event.start);
+
+                const chip = (
+                  <EventChip
+                    event={event}
+                    onClick={handleClick}
+                    compact={true}
+                    multiDay={endCol > startCol}
+                    clippedStart={clippedStart}
+                    clippedEnd={clippedEnd}
+                  />
+                );
+
+                const wrapped = (!settings.showEventTooltips || settings.eventInteractionMode === 'modal')
+                  ? chip
+                  : (
+                    <EventTooltip event={event} delay={settings.tooltipDelay} triggerClassName="block w-full">
+                      {chip}
                     </EventTooltip>
                   );
-                })}
-                {dayEvents.length > (settings.dayMaxEvents || 3) && (
-                  <div 
-                    className="text-xs text-muted-foreground cursor-pointer hover:text-foreground"
-                    onClick={() => onDayEventsOpen && onDayEventsOpen(day, dayEvents)}
+
+                return (
+                  <div
+                    key={`${event.id}-${weekIdx}-${lane}`}
+                    className="absolute"
+                    style={{ left, width, top, height: `${BAR_HEIGHT}px` }}
                   >
-                    +{dayEvents.length - (settings.dayMaxEvents || 3)} more
+                    {wrapped}
                   </div>
-                )}
-              </div>
+                );
+              })}
             </div>
           );
         })}
@@ -235,4 +373,4 @@ function MonthView({
   );
 }
 
-export default MonthView; 
+export default MonthView;

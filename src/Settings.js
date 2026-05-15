@@ -163,6 +163,13 @@ export const DEFAULT_SETTINGS = {
   showDateTooltips: true,
   tooltipDelay: 300,
   showEventIds: false,
+  showSelectEventButton: true,
+  eventDetailVisibility: {
+    time: true,
+    description: true,
+    category: true,
+    additionalFields: {} // keyed by column name; missing entries default to visible
+  },
   headerToolbar: {
     left: 'prev,next today',
     center: 'title',
@@ -688,6 +695,111 @@ function Settings({
               </div>
               <p className="text-sm text-muted-foreground">Display event IDs in detailed views (for debugging)</p>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="showSelectEventButton">Show "Select Event" Button</Label>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="showSelectEventButton"
+                  checked={tempSettings.showSelectEventButton !== false}
+                  onCheckedChange={(checked) => setTempSettings({ ...tempSettings, showSelectEventButton: checked })}
+                />
+                <Label htmlFor="showSelectEventButton" className="text-sm font-normal">
+                  {tempSettings.showSelectEventButton !== false ? 'Enabled' : 'Disabled'}
+                </Label>
+              </div>
+              <p className="text-sm text-muted-foreground">Toggle the "Select Event" button in the event detail modal</p>
+            </div>
+
+            {/* Event Detail Field Visibility */}
+            {(() => {
+              const visibility = tempSettings.eventDetailVisibility || {};
+              const setVisibility = (patch) =>
+                setTempSettings({
+                  ...tempSettings,
+                  eventDetailVisibility: { ...visibility, ...patch }
+                });
+              const setAdditionalField = (name, checked) =>
+                setVisibility({
+                  additionalFields: { ...(visibility.additionalFields || {}), [name]: checked }
+                });
+
+              const fieldKeys = Array.isArray(config.eventFields)
+                ? config.eventFields
+                : (config.eventFields ? [config.eventFields] : []);
+              const fieldNames = fieldKeys
+                .map((key) => elementColumns?.[key]?.name || key)
+                .filter(Boolean);
+
+              return (
+                <div className="space-y-2">
+                  <Label>Event Detail Fields</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Choose which fields appear when a viewer opens an event in the published version.
+                  </p>
+                  <div className="rounded-md border border-border divide-y divide-border">
+                    {[
+                      { key: 'time', label: 'When (date / time)' },
+                      { key: 'description', label: 'Description' },
+                      { key: 'category', label: 'Category' }
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center justify-between px-3 py-2 text-sm">
+                        <span>{label}</span>
+                        <Switch
+                          checked={visibility[key] !== false}
+                          onCheckedChange={(checked) => setVisibility({ [key]: checked })}
+                        />
+                      </div>
+                    ))}
+                    {fieldNames.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">
+                        Add columns to "Additional Fields" in the editor panel to control them here.
+                      </div>
+                    ) : (
+                      fieldNames.map((name) => (
+                        <div key={name} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <span className="truncate">{name}</span>
+                          <Switch
+                            checked={(visibility.additionalFields?.[name]) !== false}
+                            onCheckedChange={(checked) => setAdditionalField(name, checked)}
+                          />
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Additional Field Slot Mapping */}
+            {(() => {
+              const fieldKeys = Array.isArray(config.eventFields)
+                ? config.eventFields
+                : (config.eventFields ? [config.eventFields] : []);
+              if (fieldKeys.length === 0) return null;
+              return (
+                <div className="space-y-2">
+                  <Label>Additional Field Slot Mapping</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Link these slot numbers to controls in the plugin editor panel.
+                  </p>
+                  <div className="rounded-md border border-border overflow-hidden">
+                    {fieldKeys.map((key, i) => {
+                      const colName = elementColumns?.[key]?.name || key;
+                      return (
+                        <div
+                          key={key}
+                          className={`flex items-center justify-between px-3 py-2 text-sm ${i % 2 === 0 ? 'bg-muted/40' : ''}`}
+                        >
+                          <span className="font-medium text-muted-foreground">Additional Field {i + 1}</span>
+                          <span className="font-mono text-xs bg-background border border-border rounded px-2 py-0.5">{colName}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
           )}
 
