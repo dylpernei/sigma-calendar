@@ -5,7 +5,7 @@ import Settings, { DEFAULT_SETTINGS } from './Settings';
 import HelpModal from './HelpModal';
 import Onboarding from './components/Onboarding';
 import { processCalendarData } from './utils/dataProcessor';
-import { formatColumnValue } from './utils/columnHelper';
+import { formatColumnValue, getEventColor, getEventTextColor } from './utils/columnHelper';
 import CalendarView from './CalendarView';
 import './App.css';
 
@@ -21,6 +21,7 @@ client.config.configureEditorPanel([
   { name: 'endDate',      type: 'column', source: 'source', allowMultiple: false, label: 'End Date (Optional)' },
   { name: 'description',  type: 'column', source: 'source', allowMultiple: false, label: 'Description (Optional)' },
   { name: 'category',     type: 'column', source: 'source', allowMultiple: false, label: 'Category/Color (Optional)' },
+  { name: 'subcategory',  type: 'column', source: 'source', allowMultiple: false, label: 'Sub-category/Color (Optional)' },
   { name: 'eventFields',  type: 'column', source: 'source', allowMultiple: true,  label: 'Additional Fields' },
   { name: 'selectedEventID',     type: 'variable', label: 'Selected Event ID' },
   { name: 'selectedDate',        type: 'variable', label: 'Selected Start Date' },
@@ -235,8 +236,24 @@ function App() {
   const calendarData = useMemo(
     () => processCalendarData(sigmaData, config, settings, elementColumns),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sigmaData, elementColumns, config.source, config.title, config.startDate, config.endDate, config.description, config.category, config.eventFields, config.ID, settings]
+    [sigmaData, elementColumns, config.source, config.title, config.startDate, config.endDate, config.description, config.category, config.subcategory, config.eventFields, config.ID, settings]
   );
+
+  // When a subcategory column is configured and all visible events share one category,
+  // remap event colors to be driven by subcategory instead.
+  const displayData = useMemo(() => {
+    if (!calendarData || !config.subcategory) return calendarData;
+    const { events } = calendarData;
+    const uniqueCategories = new Set(events.map(e => e.category));
+    if (uniqueCategories.size !== 1) return calendarData;
+    const remappedEvents = events.map(e => ({
+      ...e,
+      color: getEventColor(e.subcategory || 'Default', settings),
+      textColor: getEventTextColor(e.subcategory || 'Default', settings),
+    }));
+    return { ...calendarData, events: remappedEvents };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calendarData, config.subcategory, settings]);
 
   const handleSettingsSave = (newSettings) => {
     // Record save time to prevent config.config useEffect from overwriting with stale data
@@ -328,7 +345,7 @@ function App() {
           client={client}
           elementColumns={elementColumns}
           config={config}
-          categories={calendarData?.categories || []}
+          categories={displayData?.categories || []}
         />
       </>
     );
@@ -339,7 +356,7 @@ function App() {
     return null;
   }
   // If data loaded but couldn't be processed, show a gentle configuration hint
-  if (!calendarData) {
+  if (!displayData) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-10">
         <div className="text-center max-w-xl">
@@ -353,7 +370,7 @@ function App() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <CalendarView 
-        data={calendarData}
+        data={displayData}
         settings={settings}
         onEventClick={handleEventClick}
         editMode={config.editMode}

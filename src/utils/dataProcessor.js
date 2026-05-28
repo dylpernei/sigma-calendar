@@ -36,6 +36,7 @@ export function processCalendarData(sigmaData, config, settings, elementColumns)
   if (config.endDate) requiredColumns.push(config.endDate);
   if (config.description) requiredColumns.push(config.description);
   if (config.category) requiredColumns.push(config.category);
+  if (config.subcategory) requiredColumns.push(config.subcategory);
   if (config.eventFields && Array.isArray(config.eventFields)) {
     requiredColumns.push(...config.eventFields);
   }
@@ -52,6 +53,7 @@ export function processCalendarData(sigmaData, config, settings, elementColumns)
   const endDateData = config.endDate ? (sigmaData[config.endDate] || []) : null;
   const descriptionData = config.description ? (sigmaData[config.description] || []) : null;
   const categoryData = config.category ? (sigmaData[config.category] || []) : null;
+  const subcategoryData = config.subcategory ? (sigmaData[config.subcategory] || []) : null;
   const idData = config.ID ? (sigmaData[config.ID] || []) : null;
 
   if (titleData.length === 0 || startDateData.length === 0) {
@@ -100,6 +102,7 @@ export function processCalendarData(sigmaData, config, settings, elementColumns)
     // Get other fields
     const description = descriptionData && descriptionData[i] ? String(descriptionData[i]) : '';
     const category = categoryData && categoryData[i] ? String(categoryData[i]) : 'Default';
+    const subcategory = subcategoryData && subcategoryData[i] ? String(subcategoryData[i]) : null;
     const eventId = idData && idData[i] != null ? idData[i] : i;
 
     // Add category to set
@@ -130,6 +133,7 @@ export function processCalendarData(sigmaData, config, settings, elementColumns)
       allDay: isAllDay,
       description,
       category,
+      subcategory,
       color: getEventColor(category, settings),
       textColor: getEventTextColor(category, settings),
       additionalFields,

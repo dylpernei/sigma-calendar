@@ -3,6 +3,7 @@ import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday } from 'date
 import { getEventsForDate } from '../../utils/dataProcessor';
 import EventChip from './EventChip';
 import { DateTooltip, EventTooltip } from '../ui/tooltip';
+import { computeWeekBars, BAR_HEIGHT, LANE_GAP } from '../../utils/weekBars';
 
 function WeekView({ 
   currentDate, 
@@ -110,7 +111,19 @@ function WeekView({
     );
   }
 
-  // Regular week view
+  // Regular week view — all events render as continuous horizontal bands.
+  const allBars = computeWeekBars(days, events);
+  const usedLanes = allBars.reduce((m, b) => Math.max(m, b.lane + 1), 0);
+  const barsRowHeight = usedLanes * (BAR_HEIGHT + LANE_GAP) + (usedLanes > 0 ? LANE_GAP * 2 : 0);
+
+  const getEventClickHandler = (event, day) => {
+    const mode = settings.eventInteractionMode || 'auto';
+    if (mode === 'tooltip') {
+      return () => onEventClick && onEventClick(event.id, format(day, 'yyyy-MM-dd'), event);
+    }
+    return () => onEventModalOpen && onEventModalOpen(event);
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Week day headers */}
@@ -142,58 +155,56 @@ function WeekView({
         })}
       </div>
 
-      {/* Week grid */}
-      <div className="flex-1 grid grid-cols-7">
-        {days.map((day) => {
-          const dayEvents = getEventsForDate(events, day);
+      {/* All events as horizontal bands */}
+      <div
+        className="relative flex-1"
+        style={{ minHeight: `${barsRowHeight}px` }}
+      >
+        {/* Column backgrounds */}
+        {days.map((day, i) => (
+          <div
+            key={`col-${day.toISOString()}`}
+            className={`absolute top-0 bottom-0 ${i < 6 ? 'border-r border-border' : ''} ${
+              isToday(day) ? 'bg-blue-50 dark:bg-blue-950/20' : ''
+            }`}
+            style={{ left: `${(i / 7) * 100}%`, width: `${(1 / 7) * 100}%` }}
+          />
+        ))}
+
+        {/* Event bars */}
+        {allBars.map((bar) => {
+          const { event, startCol, endCol, lane, clippedStart, clippedEnd } = bar;
+          const span = endCol - startCol + 1;
+          const left = `calc(${(startCol / 7) * 100}% + 4px)`;
+          const width = `calc(${(span / 7) * 100}% - 8px)`;
+          const top = `${LANE_GAP + lane * (BAR_HEIGHT + LANE_GAP)}px`;
+
+          const handleClick = getEventClickHandler(event, event.start);
+          const chip = (
+            <EventChip
+              event={event}
+              onClick={handleClick}
+              compact={false}
+              multiDay={endCol > startCol}
+              clippedStart={clippedStart}
+              clippedEnd={clippedEnd}
+            />
+          );
+          const wrapped = (!settings.showEventTooltips || settings.eventInteractionMode === 'modal')
+            ? chip
+            : (
+              <EventTooltip event={event} delay={settings.tooltipDelay} triggerClassName="block w-full">
+                {chip}
+              </EventTooltip>
+            );
 
           return (
             <div
-              key={day.toISOString()}
-              className={`
-                border-r border-border p-2 min-h-full flex flex-col
-                ${isToday(day) ? 'bg-blue-50 dark:bg-blue-950/20' : ''}
-              `}
+              key={`${event.id}-${lane}`}
+              className="absolute"
+              style={{ left, width, top, height: `${BAR_HEIGHT}px` }}
             >
-              <div className="space-y-1 min-w-0">
-                {dayEvents.map((event) => {
-                  // Determine the appropriate click handler based on interaction mode
-                  const getEventClickHandler = () => {
-                    const mode = settings.eventInteractionMode || 'auto';
-                    if (mode === 'tooltip') {
-                      // Tooltip mode: only trigger Sigma actions, no modal
-                      return () => onEventClick && onEventClick(event.id, format(day, 'yyyy-MM-dd'), event);
-                    } else {
-                      // Modal, both, or auto modes: open modal
-                      return () => onEventModalOpen && onEventModalOpen(event);
-                    }
-                  };
-
-                  const eventChip = (
-                    <EventChip
-                      event={event}
-                      onClick={getEventClickHandler()}
-                      compact={false}
-                    />
-                  );
-
-                  // Respect interaction mode settings
-                  if (!settings.showEventTooltips || settings.eventInteractionMode === 'modal') {
-                    return <div key={`${event.id}-${day.toISOString()}`} className="min-w-0 w-full">{eventChip}</div>;
-                  }
-
-                  return (
-                    <EventTooltip 
-                      key={`${event.id}-${day.toISOString()}`} 
-                      event={event}
-                      delay={settings.tooltipDelay}
-                      triggerClassName="block w-full min-w-0"
-                    >
-                      {eventChip}
-                    </EventTooltip>
-                  );
-                })}
-              </div>
+              {wrapped}
             </div>
           );
         })}
