@@ -145,6 +145,7 @@ export const DEFAULT_SETTINGS = {
   eventHeight: 'auto', // 'auto', 'fixed'
   eventTimeFormat: 'short', // 'short', 'long', 'none'
   firstDay: 0, // 0 = Sunday, 1 = Monday
+  monthRowHeight: 110, // Fixed row height in month view (px)
   dayMaxEvents: 3, // Maximum events to show per day before showing "more" link
   dayMaxEventRows: 3, // Maximum rows of events in month view
   slotDuration: '00:30:00', // Duration of time slots in agenda views
@@ -550,6 +551,25 @@ function Settings({
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">Maximum events shown per day before "more" link</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="monthRowHeight">Month Row Height</Label>
+              <Select
+                value={(tempSettings.monthRowHeight || 110).toString()}
+                onValueChange={(value) => setTempSettings({ ...tempSettings, monthRowHeight: parseInt(value) })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select row height" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="80">Compact (80px)</SelectItem>
+                  <SelectItem value="110">Standard (110px)</SelectItem>
+                  <SelectItem value="140">Comfortable (140px)</SelectItem>
+                  <SelectItem value="170">Tall (170px)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">Fixed height for every week row in month view</p>
             </div>
 
             <div className="space-y-2">

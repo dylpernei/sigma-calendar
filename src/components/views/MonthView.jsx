@@ -168,7 +168,7 @@ function MonthView({
     return { weekBars, visibleBars, hiddenBars, usedLanes, rowHeight };
   });
 
-  const uniformRowHeight = 110;
+  const uniformRowHeight = settings.monthRowHeight || 110;
 
   // Regular month view
   return (
