@@ -168,7 +168,7 @@ function MonthView({
     return { weekBars, visibleBars, hiddenBars, usedLanes, rowHeight };
   });
 
-  const uniformRowHeight = Math.max(...allWeekData.map((w) => w.rowHeight));
+  const uniformRowHeight = 110;
 
   // Regular month view
   return (
