@@ -156,6 +156,20 @@ function MonthView({
     return () => onEventModalOpen && onEventModalOpen(event);
   };
 
+  // Pre-compute bars for every week so we can derive a single uniform row
+  // height — every row is the same height regardless of how many events it has.
+  const allWeekData = weeks.map((week) => {
+    const weekBars = computeWeekBars(week, events);
+    const visibleBars = weekBars.filter((b) => b.lane < maxLanes);
+    const hiddenBars = weekBars.filter((b) => b.lane >= maxLanes);
+    const usedLanes = Math.min(maxLanes, weekBars.reduce((m, b) => Math.max(m, b.lane + 1), 0));
+    const rowHeight =
+      HEADER_HEIGHT + usedLanes * (BAR_HEIGHT + LANE_GAP) + (hiddenBars.length > 0 ? MORE_HEIGHT : 6);
+    return { weekBars, visibleBars, hiddenBars, usedLanes, rowHeight };
+  });
+
+  const uniformRowHeight = Math.max(...allWeekData.map((w) => w.rowHeight));
+
   // Regular month view
   return (
     <div className="h-full flex flex-col">
@@ -171,9 +185,7 @@ function MonthView({
       {/* Calendar grid — each week is a row with absolutely positioned event bars */}
       <div className="flex-1 overflow-y-auto">
         {weeks.map((week, weekIdx) => {
-          const weekBars = computeWeekBars(week, events);
-          const visibleBars = weekBars.filter((b) => b.lane < maxLanes);
-          const hiddenBars = weekBars.filter((b) => b.lane >= maxLanes);
+          const { visibleBars, hiddenBars } = allWeekData[weekIdx];
 
           // Per-day count of hidden events for "+N more" link
           const hiddenPerDay = week.map((d) => {
@@ -188,15 +200,11 @@ function MonthView({
               });
           });
 
-          const usedLanes = Math.min(maxLanes, weekBars.reduce((m, b) => Math.max(m, b.lane + 1), 0));
-          const rowMinHeight =
-            HEADER_HEIGHT + usedLanes * (BAR_HEIGHT + LANE_GAP) + (hiddenBars.length > 0 ? MORE_HEIGHT : 6);
-
           return (
             <div
               key={weekIdx}
               className="relative grid grid-cols-7"
-              style={{ height: `${rowMinHeight}px` }}
+              style={{ height: `${uniformRowHeight}px` }}
             >
               {/* Day cells (background, date number, "+N more") */}
               {week.map((day, dayIdx) => {
@@ -238,7 +246,7 @@ function MonthView({
                     {/* Reserve space for absolutely-positioned bars */}
                     <div
                       className="pointer-events-none"
-                      style={{ height: `${usedLanes * (BAR_HEIGHT + LANE_GAP)}px` }}
+                      style={{ height: `${allWeekData[weekIdx].usedLanes * (BAR_HEIGHT + LANE_GAP)}px` }}
                     />
 
                     {/* "+N more" link */}
