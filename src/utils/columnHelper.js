@@ -83,45 +83,39 @@ export function debugEventProcessing(event, config, elementColumns) {
 export function parseDate(dateValue) {
   if (!dateValue && dateValue !== 0) return null;
 
-  // Normalise a JS Date: if it sits at UTC midnight (how Snowflake DATE
-  // columns arrive), reinterpret using UTC date parts so the local calendar
-  // date matches the stored date regardless of the viewer's timezone.
-  function utcMidnightToLocal(d) {
+  // Sigma delivers Snowflake DATE and TIMESTAMP columns as UTC epoch ms.
+  // Always extract the UTC calendar date (year/month/day) and build a local
+  // midnight Date from those parts — this way the event always lands on the
+  // day that was written in Snowflake, with zero timezone conversion applied.
+  function utcDateToLocal(d) {
     if (isNaN(d.getTime())) return null;
-    if (
-      d.getUTCHours() === 0 &&
-      d.getUTCMinutes() === 0 &&
-      d.getUTCSeconds() === 0
-    ) {
-      return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-    }
-    return d;
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   }
 
   // ── Number ────────────────────────────────────────────────────────────────
-  // Sigma delivers Snowflake DATE columns as ms-since-epoch numbers.
+  // Sigma delivers Snowflake DATE/TIMESTAMP columns as ms-since-epoch numbers.
   // e.g. 1776384000000 → 2026-04-15T00:00:00.000Z
   if (typeof dateValue === 'number') {
-    return utcMidnightToLocal(new Date(dateValue));
+    return utcDateToLocal(new Date(dateValue));
   }
 
   // ── Date object ───────────────────────────────────────────────────────────
   if (dateValue instanceof Date) {
-    return utcMidnightToLocal(dateValue);
+    return utcDateToLocal(dateValue);
   }
 
   // ── String ────────────────────────────────────────────────────────────────
   const str = String(dateValue).trim();
 
-  // Date-only "YYYY-MM-DD" — spec treats this as UTC midnight, so parse manually
+  // Date-only "YYYY-MM-DD" — parse directly as local midnight (no UTC involved)
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
     const [y, m, d] = str.split('-').map(Number);
     return new Date(y, m - 1, d);
   }
 
-  // Any other string — parse then apply midnight correction
+  // Any other string (includes time component) — parse as UTC, extract UTC date
   const parsed = new Date(str);
-  return isNaN(parsed.getTime()) ? null : utcMidnightToLocal(parsed);
+  return isNaN(parsed.getTime()) ? null : utcDateToLocal(parsed);
 }
 
 /**
