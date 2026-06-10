@@ -193,10 +193,13 @@ export function generateSampleEvents(startDate = new Date(), count = 10) {
   const categories = ['Meeting', 'Task', 'Deadline', 'Event', 'Review'];
   const colors = ['#3788d8', '#f97316', '#ef4444', '#22c55e', '#8b5cf6'];
 
+  const subcategories = ['Alpha', 'Beta', 'Gamma'];
+
   for (let i = 0; i < count; i++) {
     const eventStart = addDays(startDate, Math.floor(Math.random() * 30));
     const category = categories[Math.floor(Math.random() * categories.length)];
-    
+    const subcategory = subcategories[Math.floor(Math.random() * subcategories.length)];
+
     events.push({
       id: i + 1,
       title: `Sample Event ${i + 1}`,
@@ -205,6 +208,7 @@ export function generateSampleEvents(startDate = new Date(), count = 10) {
       allDay: Math.random() > 0.5,
       description: `This is a sample event description for event ${i + 1}`,
       category,
+      subcategory,
       color: colors[categories.indexOf(category)],
       additionalFields: {
         'Priority': ['Low', 'Medium', 'High'][Math.floor(Math.random() * 3)],

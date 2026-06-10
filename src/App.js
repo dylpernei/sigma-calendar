@@ -5,7 +5,7 @@ import Settings, { DEFAULT_SETTINGS } from './Settings';
 import HelpModal from './HelpModal';
 import Onboarding from './components/Onboarding';
 import { processCalendarData } from './utils/dataProcessor';
-import { formatColumnValue, getEventColor, getEventTextColor } from './utils/columnHelper';
+import { formatColumnValue } from './utils/columnHelper';
 import CalendarView from './CalendarView';
 import './App.css';
 
@@ -239,21 +239,9 @@ function App() {
     [sigmaData, elementColumns, config.source, config.title, config.startDate, config.endDate, config.description, config.category, config.subcategory, config.eventFields, config.ID, settings]
   );
 
-  // When a subcategory column is configured and all visible events share one category,
-  // remap event colors to be driven by subcategory instead.
-  const displayData = useMemo(() => {
-    if (!calendarData || !config.subcategory) return calendarData;
-    const { events } = calendarData;
-    const uniqueCategories = new Set(events.map(e => e.category));
-    if (uniqueCategories.size !== 1) return calendarData;
-    const remappedEvents = events.map(e => ({
-      ...e,
-      color: getEventColor(e.subcategory || 'Default', settings),
-      textColor: getEventTextColor(e.subcategory || 'Default', settings),
-    }));
-    return { ...calendarData, events: remappedEvents };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [calendarData, config.subcategory, settings]);
+  // Coloring (by category or sub-category) is handled inside CalendarView via
+  // the in-calendar "Color by" toggle. App just passes processed data through.
+  const displayData = calendarData;
 
   const handleSettingsSave = (newSettings) => {
     // Record save time to prevent config.config useEffect from overwriting with stale data

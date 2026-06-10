@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from './components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
+import { getEventColor, getEventTextColor } from './utils/columnHelper';
 import EventDetailModal, { EventPreviewModal } from './components/EventDetailModal';
 import DayEventsModal from './components/DayEventsModal';
 import { 
@@ -42,6 +43,25 @@ function CalendarView({ data, settings, onEventClick, editMode, onOpenSettings }
   const [selectedDateEvents, setSelectedDateEvents] = useState([]);
   const [isMobile, setIsMobile] = useState(false);
   const [isVerySmall, setIsVerySmall] = useState(false);
+  // What the calendar is colored by. Always defaults to 'category' on load.
+  const [colorBy, setColorBy] = useState('category');
+
+  // Only offer the sub-category option when that data is actually present.
+  const hasSubcategory = useMemo(
+    () => (data?.events || []).some((e) => e.subcategory != null && String(e.subcategory).trim() !== ''),
+    [data]
+  );
+
+  // Apply the chosen color dimension. 'category' uses the colors already
+  // computed during data processing; 'subcategory' recolors on the fly.
+  const coloredEvents = useMemo(() => {
+    if (colorBy !== 'subcategory') return data?.events || [];
+    return (data?.events || []).map((e) => ({
+      ...e,
+      color: getEventColor(e.subcategory || 'Default', settings),
+      textColor: getEventTextColor(e.subcategory || 'Default', settings),
+    }));
+  }, [data, colorBy, settings]);
 
   // Track which defaultStartDate setting was last applied (to detect setting changes)
   const appliedStartDateSetting = useRef(null);
@@ -178,7 +198,7 @@ function CalendarView({ data, settings, onEventClick, editMode, onOpenSettings }
   const renderView = () => {
     const commonProps = {
       currentDate,
-      events: data.events,
+      events: coloredEvents,
       settings,
       onEventClick: handleEventAction,
       onEventModalOpen: handleEventModalOpen,
@@ -238,6 +258,21 @@ function CalendarView({ data, settings, onEventClick, editMode, onOpenSettings }
         )}
 
         <div className="flex items-center gap-2">
+          {hasSubcategory && !isVerySmall && (
+            <Select value={colorBy} onValueChange={setColorBy}>
+              <SelectTrigger className={isMobile ? "w-28" : "w-40"}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="category">
+                  {isMobile ? 'By Category' : 'Color: Category'}
+                </SelectItem>
+                <SelectItem value="subcategory">
+                  {isMobile ? 'By Sub-cat' : 'Color: Sub-category'}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
           <Select value={currentView} onValueChange={setCurrentView}>
             <SelectTrigger className={isMobile ? "w-24" : "w-32"}>
               <SelectValue />

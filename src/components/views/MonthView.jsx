@@ -146,7 +146,21 @@ function MonthView({
     weeks.push(days.slice(i, i + 7));
   }
 
-  const maxLanes = Math.max(1, settings.dayMaxEvents || 3);
+  // Fixed, user-configurable row height. Every week row is this tall.
+  const uniformRowHeight = settings.monthRowHeight || 110;
+
+  // The user's "max events per day" cap (0 = no explicit limit).
+  const hardCap = settings.dayMaxEvents === 0
+    ? Infinity
+    : Math.max(1, settings.dayMaxEvents || 3);
+
+  // How many event lanes physically fit in the chosen row height. We derive
+  // this from the height so bars never overflow into the next row and collide
+  // with its day numbers. Two variants: one assuming no "+N more" line is
+  // needed, one reserving space for it.
+  const laneUnit = BAR_HEIGHT + LANE_GAP;
+  const fitNoMore = Math.max(1, Math.floor((uniformRowHeight - HEADER_HEIGHT) / laneUnit));
+  const fitWithMore = Math.max(1, Math.floor((uniformRowHeight - HEADER_HEIGHT - MORE_HEIGHT) / laneUnit));
 
   const getEventClickHandler = (event, day) => {
     const mode = settings.eventInteractionMode || 'auto';
@@ -156,19 +170,22 @@ function MonthView({
     return () => onEventModalOpen && onEventModalOpen(event);
   };
 
-  // Pre-compute bars for every week so we can derive a single uniform row
-  // height — every row is the same height regardless of how many events it has.
+  // Pre-compute bars for every week. The visible lane cap is whichever is
+  // smaller: the user's max-events setting, or what fits in the row height.
   const allWeekData = weeks.map((week) => {
     const weekBars = computeWeekBars(week, events);
-    const visibleBars = weekBars.filter((b) => b.lane < maxLanes);
-    const hiddenBars = weekBars.filter((b) => b.lane >= maxLanes);
-    const usedLanes = Math.min(maxLanes, weekBars.reduce((m, b) => Math.max(m, b.lane + 1), 0));
-    const rowHeight =
-      HEADER_HEIGHT + usedLanes * (BAR_HEIGHT + LANE_GAP) + (hiddenBars.length > 0 ? MORE_HEIGHT : 6);
-    return { weekBars, visibleBars, hiddenBars, usedLanes, rowHeight };
-  });
+    const totalLanes = weekBars.reduce((m, b) => Math.max(m, b.lane + 1), 0);
 
-  const uniformRowHeight = settings.monthRowHeight || 110;
+    // If everything fits without a "+more" line, show it all; otherwise cap to
+    // what fits alongside the "+more" line and overflow the rest.
+    const fitsAll = totalLanes <= Math.min(hardCap, fitNoMore);
+    const visibleCap = fitsAll ? totalLanes : Math.min(hardCap, fitWithMore);
+
+    const visibleBars = weekBars.filter((b) => b.lane < visibleCap);
+    const hiddenBars = weekBars.filter((b) => b.lane >= visibleCap);
+    const usedLanes = Math.min(visibleCap, totalLanes);
+    return { weekBars, visibleBars, hiddenBars, usedLanes };
+  });
 
   // Regular month view
   return (
@@ -203,7 +220,7 @@ function MonthView({
           return (
             <div
               key={weekIdx}
-              className="relative grid grid-cols-7"
+              className="relative grid grid-cols-7 overflow-hidden"
               style={{ height: `${uniformRowHeight}px` }}
             >
               {/* Day cells (background, date number, "+N more") */}
