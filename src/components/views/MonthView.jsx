@@ -162,6 +162,10 @@ function MonthView({
   const fitNoMore = Math.max(1, Math.floor((uniformRowHeight - HEADER_HEIGHT) / laneUnit));
   const fitWithMore = Math.max(1, Math.floor((uniformRowHeight - HEADER_HEIGHT - MORE_HEIGHT) / laneUnit));
 
+  // Scale the day-number font with the row height so dates grow as the
+  // calendar grows. Clamped to a sensible range (~13px–22px).
+  const dayNumberFontSize = Math.max(13, Math.min(22, Math.round(10 + uniformRowHeight * 0.05)));
+
   const getEventClickHandler = (event, day) => {
     const mode = settings.eventInteractionMode || 'auto';
     if (mode === 'tooltip') {
@@ -241,19 +245,23 @@ function MonthView({
                     {/* Day number with date tooltip */}
                     {settings.showDateTooltips ? (
                       <DateTooltip date={day} onDateClick={onDateClick}>
-                        <div className={`
-                          text-sm font-medium cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 inline-block w-fit
-                          ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : ''}
-                        `}>
+                        <div
+                          className={`
+                            font-medium cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 inline-block w-fit leading-tight
+                            ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : ''}
+                          `}
+                          style={{ fontSize: `${dayNumberFontSize}px` }}
+                        >
                           {format(day, 'd')}
                         </div>
                       </DateTooltip>
                     ) : (
                       <div
                         className={`
-                          text-sm font-medium cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 inline-block w-fit
+                          font-medium cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 inline-block w-fit leading-tight
                           ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : ''}
                         `}
+                        style={{ fontSize: `${dayNumberFontSize}px` }}
                         onClick={() => onDateClick && onDateClick(day)}
                       >
                         {format(day, 'd')}
