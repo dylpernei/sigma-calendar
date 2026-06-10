@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   format,
   startOfMonth,
@@ -27,6 +27,20 @@ function MonthView({
   onDateClick,
   mini = false
 }) {
+  // Measure the rendered grid height so content scales to the element size.
+  // Declared at the top (before any early return) to satisfy rules-of-hooks.
+  const gridRef = useRef(null);
+  const [containerHeight, setContainerHeight] = useState(0);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const measure = () => setContainerHeight(el.clientHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: settings.weekStartsOn });
@@ -146,25 +160,34 @@ function MonthView({
     weeks.push(days.slice(i, i + 7));
   }
 
-  // Fixed, user-configurable row height. Every week row is this tall.
-  const uniformRowHeight = settings.monthRowHeight || 110;
+  // The dropdown setting acts as a MINIMUM row height. Rows then grow to fill
+  // the calendar element, so resizing the element bigger enlarges the rows
+  // (and everything that scales off them) — not just empty space at the bottom.
+  const minRowHeight = settings.monthRowHeight || 110;
+
+  // Effective per-row height: whichever is larger — the setting's minimum, or
+  // the height each row gets when filling the measured container.
+  const measuredRowHeight = containerHeight > 0 ? containerHeight / weeks.length : 0;
+  const effectiveRowHeight = Math.max(minRowHeight, measuredRowHeight);
 
   // The user's "max events per day" cap (0 = no explicit limit).
   const hardCap = settings.dayMaxEvents === 0
     ? Infinity
     : Math.max(1, settings.dayMaxEvents || 3);
 
-  // How many event lanes physically fit in the chosen row height. We derive
-  // this from the height so bars never overflow into the next row and collide
-  // with its day numbers. Two variants: one assuming no "+N more" line is
-  // needed, one reserving space for it.
-  const laneUnit = BAR_HEIGHT + LANE_GAP;
-  const fitNoMore = Math.max(1, Math.floor((uniformRowHeight - HEADER_HEIGHT) / laneUnit));
-  const fitWithMore = Math.max(1, Math.floor((uniformRowHeight - HEADER_HEIGHT - MORE_HEIGHT) / laneUnit));
+  // Scale the day-number font with the effective row height so dates grow as
+  // the calendar grows. Clamped to a sensible range (~13px–28px).
+  const dayNumberFontSize = Math.max(13, Math.min(28, Math.round(8 + effectiveRowHeight * 0.06)));
 
-  // Scale the day-number font with the row height so dates grow as the
-  // calendar grows. Clamped to a sensible range (~13px–22px).
-  const dayNumberFontSize = Math.max(13, Math.min(22, Math.round(10 + uniformRowHeight * 0.05)));
+  // Reserve header space for the (now scalable) day number.
+  const headerOffset = Math.max(HEADER_HEIGHT, dayNumberFontSize + 12);
+
+  // How many event lanes physically fit in the effective row height, so bars
+  // never overflow into the next row and collide with its day numbers. Two
+  // variants: one assuming no "+N more" line is needed, one reserving for it.
+  const laneUnit = BAR_HEIGHT + LANE_GAP;
+  const fitNoMore = Math.max(1, Math.floor((effectiveRowHeight - headerOffset) / laneUnit));
+  const fitWithMore = Math.max(1, Math.floor((effectiveRowHeight - headerOffset - MORE_HEIGHT) / laneUnit));
 
   const getEventClickHandler = (event, day) => {
     const mode = settings.eventInteractionMode || 'auto';
@@ -204,7 +227,7 @@ function MonthView({
       </div>
 
       {/* Calendar grid — each week is a row with absolutely positioned event bars */}
-      <div className="flex-1 overflow-y-auto">
+      <div ref={gridRef} className="flex-1 flex flex-col overflow-y-auto">
         {weeks.map((week, weekIdx) => {
           const { visibleBars, hiddenBars } = allWeekData[weekIdx];
 
@@ -224,8 +247,8 @@ function MonthView({
           return (
             <div
               key={weekIdx}
-              className="relative grid grid-cols-7 overflow-hidden"
-              style={{ height: `${uniformRowHeight}px` }}
+              className="relative grid grid-cols-7 overflow-hidden flex-1"
+              style={{ minHeight: `${minRowHeight}px` }}
             >
               {/* Day cells (background, date number, "+N more") */}
               {week.map((day, dayIdx) => {
@@ -242,31 +265,34 @@ function MonthView({
                       ${isTodayDate ? 'bg-blue-50 dark:bg-blue-950/20' : ''}
                     `}
                   >
-                    {/* Day number with date tooltip */}
-                    {settings.showDateTooltips ? (
-                      <DateTooltip date={day} onDateClick={onDateClick}>
+                    {/* Day number with date tooltip — fixed-height area so the
+                        flow below it lines up with the absolutely-placed bars */}
+                    <div className="flex items-start" style={{ height: `${headerOffset}px` }}>
+                      {settings.showDateTooltips ? (
+                        <DateTooltip date={day} onDateClick={onDateClick}>
+                          <div
+                            className={`
+                              font-medium cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 inline-block w-fit leading-tight
+                              ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : ''}
+                            `}
+                            style={{ fontSize: `${dayNumberFontSize}px` }}
+                          >
+                            {format(day, 'd')}
+                          </div>
+                        </DateTooltip>
+                      ) : (
                         <div
                           className={`
                             font-medium cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 inline-block w-fit leading-tight
                             ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : ''}
                           `}
                           style={{ fontSize: `${dayNumberFontSize}px` }}
+                          onClick={() => onDateClick && onDateClick(day)}
                         >
                           {format(day, 'd')}
                         </div>
-                      </DateTooltip>
-                    ) : (
-                      <div
-                        className={`
-                          font-medium cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5 inline-block w-fit leading-tight
-                          ${isTodayDate ? 'text-blue-600 dark:text-blue-400' : ''}
-                        `}
-                        style={{ fontSize: `${dayNumberFontSize}px` }}
-                        onClick={() => onDateClick && onDateClick(day)}
-                      >
-                        {format(day, 'd')}
-                      </div>
-                    )}
+                      )}
+                    </div>
 
                     {/* Reserve space for absolutely-positioned bars */}
                     <div
@@ -277,7 +303,7 @@ function MonthView({
                     {/* "+N more" link */}
                     {hidden.length > 0 && (
                       <div
-                        className="text-xs text-muted-foreground cursor-pointer hover:text-foreground mt-auto"
+                        className="text-xs text-muted-foreground cursor-pointer hover:text-foreground"
                         onClick={() => {
                           const dayEvents = getEventsForDate(events, day);
                           onDayEventsOpen && onDayEventsOpen(day, dayEvents);
@@ -296,7 +322,7 @@ function MonthView({
                 const span = endCol - startCol + 1;
                 const left = `calc(${(startCol / 7) * 100}% + 4px)`;
                 const width = `calc(${(span / 7) * 100}% - 8px)`;
-                const top = `${HEADER_HEIGHT + lane * (BAR_HEIGHT + LANE_GAP)}px`;
+                const top = `${headerOffset + lane * (BAR_HEIGHT + LANE_GAP)}px`;
 
                 const handleClick = getEventClickHandler(event, event.start);
 
